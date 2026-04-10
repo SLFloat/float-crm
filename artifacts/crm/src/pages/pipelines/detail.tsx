@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRoute, Link } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,14 +8,16 @@ import {
   PIPELINE_STAGES,
   PipelineStage,
   PipelineCategory,
+  PipelineEntry,
   CompanyType,
 } from "@/lib/data-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Plus, X, Building2, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, X, Building2, Trash2, Pencil, Check, CalendarDays } from "lucide-react";
 
 const CATEGORY_STYLES: Record<PipelineCategory, string> = {
   "Fundraising":   "bg-violet-100 text-violet-800 border-violet-200",
@@ -23,12 +25,12 @@ const CATEGORY_STYLES: Record<PipelineCategory, string> = {
   "Deal Sourcing": "bg-amber-100 text-amber-800 border-amber-200",
 };
 
-const STAGE_STYLES: Record<PipelineStage, { bar: string; label: string }> = {
-  Initial:   { bar: "bg-slate-400",   label: "text-slate-600" },
-  Contacted: { bar: "bg-blue-400",    label: "text-blue-700" },
-  NDA:       { bar: "bg-amber-400",   label: "text-amber-700" },
-  Engaged:   { bar: "bg-violet-500",  label: "text-violet-700" },
-  Closed:    { bar: "bg-emerald-500", label: "text-emerald-700" },
+const STAGE_STYLES: Record<PipelineStage, { dot: string; heading: string; bg: string }> = {
+  Initial:   { dot: "bg-slate-400",   heading: "text-slate-600",  bg: "bg-slate-50 border-slate-200" },
+  Contacted: { dot: "bg-blue-400",    heading: "text-blue-700",   bg: "bg-blue-50 border-blue-200" },
+  NDA:       { dot: "bg-amber-400",   heading: "text-amber-700",  bg: "bg-amber-50 border-amber-200" },
+  Engaged:   { dot: "bg-violet-500",  heading: "text-violet-700", bg: "bg-violet-50 border-violet-200" },
+  Closed:    { dot: "bg-emerald-500", heading: "text-emerald-700",bg: "bg-emerald-50 border-emerald-200" },
 };
 
 const COMPANY_TYPE_STYLES: Record<CompanyType, string> = {
@@ -39,17 +41,73 @@ const COMPANY_TYPE_STYLES: Record<CompanyType, string> = {
   "Service Provider":"bg-slate-100 text-slate-700 border-slate-200",
 };
 
-const formSchema = z.object({
+function formatDate(date: string) {
+  if (!date) return "—";
+  try {
+    return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch { return "—"; }
+}
+
+function InlineEdit({ value, onSave, placeholder }: { value: string; onSave: (v: string) => void; placeholder: string }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const save = () => { onSave(draft); setEditing(false); };
+  const cancel = () => { setDraft(value); setEditing(false); };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1.5 flex-1">
+        <Input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel(); }}
+          className="h-7 text-xs flex-1"
+          placeholder={placeholder}
+        />
+        <button onClick={save} className="text-emerald-600 hover:text-emerald-700 flex-shrink-0" aria-label="Save">
+          <Check className="w-3.5 h-3.5" />
+        </button>
+        <button onClick={cancel} className="text-muted-foreground hover:text-foreground flex-shrink-0" aria-label="Cancel">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex items-center gap-1.5 group/edit cursor-pointer flex-1 min-w-0"
+      onClick={() => { setDraft(value); setEditing(true); }}
+    >
+      {value ? (
+        <span className="text-xs text-foreground truncate">{value}</span>
+      ) : (
+        <span className="text-xs text-muted-foreground/50 italic">{placeholder}</span>
+      )}
+      <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover/edit:opacity-100 flex-shrink-0 transition-opacity" />
+    </div>
+  );
+}
+
+const entryFormSchema = z.object({
   companyId: z.string().min(1, "Select a company"),
   stage: z.enum(["Initial", "Contacted", "NDA", "Engaged", "Closed"]),
-  notes: z.string().optional(),
+  nextStep: z.string().optional(),
 });
+type EntryFormValues = z.infer<typeof entryFormSchema>;
 
-type FormValues = z.infer<typeof formSchema>;
+function today() {
+  return new Date().toISOString().split("T")[0];
+}
 
 export default function PipelineDetail() {
   const [, params] = useRoute("/pipelines/:id");
-  const { pipelines, pipelineEntries, companies, addPipelineEntry, updatePipelineEntryStage, removePipelineEntry } = useApp();
+  const { pipelines, pipelineEntries, companies, addPipelineEntry, updatePipelineEntry, removePipelineEntry } = useApp();
   const [showForm, setShowForm] = useState(false);
 
   const pipelineId = params?.id;
@@ -59,19 +117,21 @@ export default function PipelineDetail() {
   const usedCompanyIds = new Set(entries.map((e) => e.companyId));
   const availableCompanies = companies.filter((c) => !usedCompanyIds.has(c.id));
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { companyId: "", stage: "Initial", notes: "" },
+  const form = useForm<EntryFormValues>({
+    resolver: zodResolver(entryFormSchema),
+    defaultValues: { companyId: "", stage: "Initial", nextStep: "" },
   });
 
-  const onSubmit = (values: FormValues) => {
+  const onSubmit = (values: EntryFormValues) => {
     addPipelineEntry({
       pipelineId: pipelineId!,
       companyId: values.companyId,
       stage: values.stage,
-      notes: values.notes ?? "",
+      nextStep: values.nextStep ?? "",
+      lastActivityDate: today(),
+      status: "Active",
     });
-    form.reset({ companyId: "", stage: "Initial", notes: "" });
+    form.reset({ companyId: "", stage: "Initial", nextStep: "" });
     setShowForm(false);
   };
 
@@ -79,12 +139,13 @@ export default function PipelineDetail() {
     return (
       <div className="text-center py-12">
         <h2 className="text-2xl font-bold">Pipeline not found</h2>
-        <Link href="/pipelines" className="text-primary hover:underline mt-4 inline-block">
-          Return to pipelines
-        </Link>
+        <Link href="/pipelines" className="text-primary hover:underline mt-4 inline-block">Return to pipelines</Link>
       </div>
     );
   }
+
+  const activeEntries = entries.filter((e) => e.status === "Active");
+  const closedEntries = entries.filter((e) => e.status === "Closed");
 
   return (
     <div className="space-y-6">
@@ -96,9 +157,18 @@ export default function PipelineDetail() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{pipeline.name}</h1>
-            <div className="mt-1.5">
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium border ${CATEGORY_STYLES[pipeline.category]}`}>
                 {pipeline.category}
+              </span>
+              {pipeline.parentName && (
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Building2 className="w-3.5 h-3.5" />
+                  {pipeline.parentType}: <span className="font-medium text-foreground">{pipeline.parentName}</span>
+                </span>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {activeEntries.length} active · {closedEntries.length} closed
               </span>
             </div>
           </div>
@@ -172,18 +242,12 @@ export default function PipelineDetail() {
                 </div>
                 <FormField
                   control={form.control}
-                  name="notes"
+                  name="nextStep"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">Notes <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
+                      <FormLabel className="text-xs">Next Step <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Any context about this company's position..."
-                          className="text-sm resize-none"
-                          rows={2}
-                          {...field}
-                          data-testid="textarea-entry-notes"
-                        />
+                        <Input placeholder="e.g. Schedule intro call" className="h-9 text-sm" {...field} data-testid="input-entry-nextstep" />
                       </FormControl>
                     </FormItem>
                   )}
@@ -206,75 +270,92 @@ export default function PipelineDetail() {
           <p className="text-sm mt-1">Use the "Add Company" button to get started.</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {PIPELINE_STAGES.map((stage) => {
-            const stageEntries = entries.filter((e) => e.stage === stage);
+            const stageEntries = activeEntries.filter((e) => e.stage === stage);
             if (stageEntries.length === 0) return null;
             const style = STAGE_STYLES[stage];
             return (
               <div key={stage} data-testid={`stage-section-${stage}`}>
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${style.bar}`} />
-                  <h2 className={`text-sm font-bold uppercase tracking-wider ${style.label}`}>{stage}</h2>
-                  <span className="text-xs text-muted-foreground">
-                    {stageEntries.length} {stageEntries.length === 1 ? "company" : "companies"}
-                  </span>
+                <div className="flex items-center gap-2.5 mb-3">
+                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${style.dot}`} />
+                  <h2 className={`text-sm font-bold uppercase tracking-wider ${style.heading}`}>{stage}</h2>
+                  <span className="text-xs text-muted-foreground">{stageEntries.length} {stageEntries.length === 1 ? "company" : "companies"}</span>
                 </div>
+
                 <div className="space-y-2 pl-5">
+                  {/* Column headers */}
+                  <div className="grid grid-cols-[1fr_180px_160px_120px_36px] gap-3 px-3.5 pb-1">
+                    <span className="text-xs text-muted-foreground font-medium">Company</span>
+                    <span className="text-xs text-muted-foreground font-medium">Next Step</span>
+                    <span className="text-xs text-muted-foreground font-medium">Last Activity</span>
+                    <span className="text-xs text-muted-foreground font-medium">Stage</span>
+                    <span />
+                  </div>
+
                   {stageEntries.map((entry) => {
                     const company = companies.find((c) => c.id === entry.companyId);
                     if (!company) return null;
                     return (
                       <div
                         key={entry.id}
-                        className="flex items-center gap-4 p-3.5 border rounded-lg bg-card hover:bg-muted/30 transition-colors"
+                        className="grid grid-cols-[1fr_180px_160px_120px_36px] gap-3 items-center px-3.5 py-2.5 border rounded-lg bg-card hover:bg-muted/20 transition-colors"
                         data-testid={`entry-${entry.id}`}
                       >
-                        <div className="flex-1 min-w-0 flex items-center gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
                           <Link
                             href={`/companies/${company.id}`}
                             className="font-medium text-sm hover:text-primary hover:underline truncate"
                           >
                             {company.name}
                           </Link>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border flex-shrink-0 ${COMPANY_TYPE_STYLES[company.type]}`}>
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border flex-shrink-0 ${COMPANY_TYPE_STYLES[company.type]}`}>
                             {company.type}
                           </span>
-                          {entry.notes && (
-                            <span className="text-xs text-muted-foreground truncate hidden md:block">
-                              {entry.notes}
-                            </span>
-                          )}
                         </div>
 
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <Select
-                            value={entry.stage}
-                            onValueChange={(val) => updatePipelineEntryStage(entry.id, val as PipelineStage)}
-                          >
-                            <SelectTrigger
-                              className="h-8 text-xs w-32"
-                              data-testid={`select-stage-${entry.id}`}
-                            >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {PIPELINE_STAGES.map((s) => (
-                                <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50"
-                            onClick={() => removePipelineEntry(entry.id)}
-                            data-testid={`button-remove-${entry.id}`}
-                            aria-label="Remove from pipeline"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                        <InlineEdit
+                          value={entry.nextStep}
+                          onSave={(v) => updatePipelineEntry(entry.id, { nextStep: v })}
+                          placeholder="Add next step…"
+                        />
+
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <CalendarDays className="w-3 h-3 flex-shrink-0" />
+                          {formatDate(entry.lastActivityDate)}
                         </div>
+
+                        <Select
+                          value={entry.stage}
+                          onValueChange={(val) => {
+                            if (val === "__close__") {
+                              updatePipelineEntry(entry.id, { status: "Closed" });
+                            } else {
+                              updatePipelineEntry(entry.id, { stage: val as PipelineStage });
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-7 text-xs" data-testid={`select-stage-${entry.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PIPELINE_STAGES.map((s) => (
+                              <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                            ))}
+                            <SelectItem value="__close__" className="text-xs text-muted-foreground border-t mt-1 pt-1">Mark Closed</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                          onClick={() => removePipelineEntry(entry.id)}
+                          data-testid={`button-remove-${entry.id}`}
+                          aria-label="Remove from pipeline"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
                     );
                   })}
@@ -282,6 +363,54 @@ export default function PipelineDetail() {
               </div>
             );
           })}
+
+          {closedEntries.length > 0 && (
+            <div data-testid="stage-section-closed">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-300" />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400">Closed</h2>
+                <span className="text-xs text-muted-foreground">{closedEntries.length} {closedEntries.length === 1 ? "company" : "companies"}</span>
+              </div>
+              <div className="space-y-2 pl-5">
+                {closedEntries.map((entry) => {
+                  const company = companies.find((c) => c.id === entry.companyId);
+                  if (!company) return null;
+                  return (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between px-3.5 py-2.5 border rounded-lg bg-muted/20 opacity-60"
+                      data-testid={`entry-closed-${entry.id}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm line-through text-muted-foreground">{company.name}</span>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border ${COMPANY_TYPE_STYLES[company.type]}`}>
+                          {company.type}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => updatePipelineEntry(entry.id, { status: "Active", stage: "Initial" })}
+                        >
+                          Reopen
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                          onClick={() => removePipelineEntry(entry.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -3,13 +3,13 @@ import { Link } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useApp, PIPELINE_CATEGORIES, PipelineCategory } from "@/lib/data-context";
+import { useApp, PIPELINE_CATEGORIES, PipelineCategory, PipelineParentType } from "@/lib/data-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { GitBranch, Plus, ChevronRight, X } from "lucide-react";
+import { GitBranch, Plus, ChevronRight, X, Building2 } from "lucide-react";
 
 const CATEGORY_STYLES: Record<PipelineCategory, string> = {
   "Fundraising":   "bg-violet-100 text-violet-800 border-violet-200",
@@ -17,9 +17,16 @@ const CATEGORY_STYLES: Record<PipelineCategory, string> = {
   "Deal Sourcing": "bg-amber-100 text-amber-800 border-amber-200",
 };
 
+const PARENT_LABELS: Record<PipelineCategory, { show: boolean; type: PipelineParentType | null; label: string }> = {
+  "Fundraising":   { show: true,  type: "Fund", label: "Fund" },
+  "Co-invest":     { show: true,  type: "Deal", label: "Deal" },
+  "Deal Sourcing": { show: false, type: null,   label: "" },
+};
+
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   category: z.enum(["Fundraising", "Co-invest", "Deal Sourcing"]),
+  parentName: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -30,17 +37,28 @@ export default function Pipelines() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", category: "Fundraising" },
+    defaultValues: { name: "", category: "Fundraising", parentName: "" },
   });
 
+  const watchedCategory = form.watch("category");
+  const parentConfig = PARENT_LABELS[watchedCategory];
+
   const onSubmit = (values: FormValues) => {
-    addPipeline({ name: values.name, category: values.category });
-    form.reset();
+    addPipeline({
+      name: values.name,
+      category: values.category,
+      parentType: parentConfig.type ?? undefined,
+      parentName: values.parentName?.trim() || undefined,
+    });
+    form.reset({ name: "", category: "Fundraising", parentName: "" });
     setShowForm(false);
   };
 
   const entryCount = (pipelineId: string) =>
     pipelineEntries.filter((e) => e.pipelineId === pipelineId).length;
+
+  const activeCount = (pipelineId: string) =>
+    pipelineEntries.filter((e) => e.pipelineId === pipelineId && e.status === "Active").length;
 
   return (
     <div className="space-y-6">
@@ -64,45 +82,73 @@ export default function Pipelines() {
         <Card>
           <CardContent className="pt-6">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-end gap-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem className="flex-1">
-                      <FormLabel className="text-xs">Pipeline Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Series C Investors" className="h-9" {...field} data-testid="input-pipeline-name" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem className="w-52">
-                      <FormLabel className="text-xs">Category</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Pipeline Name</FormLabel>
                         <FormControl>
-                          <SelectTrigger className="h-9" data-testid="select-pipeline-category">
-                            <SelectValue />
-                          </SelectTrigger>
+                          <Input placeholder="e.g. Series C Investors" className="h-9" {...field} data-testid="input-pipeline-name" />
                         </FormControl>
-                        <SelectContent>
-                          {PIPELINE_CATEGORIES.map((c) => (
-                            <SelectItem key={c} value={c}>{c}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="h-9" data-testid="button-submit-pipeline">
-                  Create
-                </Button>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Category</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-9" data-testid="select-pipeline-category">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {PIPELINE_CATEGORIES.map((c) => (
+                              <SelectItem key={c} value={c}>{c}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {parentConfig.show && (
+                  <FormField
+                    control={form.control}
+                    name="parentName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">
+                          Linked {parentConfig.label}{" "}
+                          <span className="text-muted-foreground font-normal">(optional)</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={parentConfig.type === "Fund" ? "e.g. Horizon Growth Fund IV" : "e.g. Project Apollo"}
+                            className="h-9"
+                            {...field}
+                            data-testid="input-pipeline-parent"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                <div className="flex justify-end">
+                  <Button type="submit" className="h-9" data-testid="button-submit-pipeline">
+                    Create Pipeline
+                  </Button>
+                </div>
               </form>
             </Form>
           </CardContent>
@@ -118,7 +164,8 @@ export default function Pipelines() {
       ) : (
         <div className="space-y-3">
           {pipelines.map((pipeline) => {
-            const count = entryCount(pipeline.id);
+            const total = entryCount(pipeline.id);
+            const active = activeCount(pipeline.id);
             return (
               <Link key={pipeline.id} href={`/pipelines/${pipeline.id}`} data-testid={`pipeline-row-${pipeline.id}`}>
                 <div className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-muted/40 transition-colors cursor-pointer group">
@@ -128,12 +175,18 @@ export default function Pipelines() {
                     </div>
                     <div>
                       <p className="font-semibold text-sm group-hover:text-primary transition-colors">{pipeline.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${CATEGORY_STYLES[pipeline.category]}`}>
                           {pipeline.category}
                         </span>
+                        {pipeline.parentName && (
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Building2 className="w-3 h-3" />
+                            {pipeline.parentType}: {pipeline.parentName}
+                          </span>
+                        )}
                         <span className="text-xs text-muted-foreground">
-                          {count} {count === 1 ? "company" : "companies"}
+                          {active} active · {total} total
                         </span>
                       </div>
                     </div>

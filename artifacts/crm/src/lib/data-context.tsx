@@ -6,6 +6,8 @@ export type ActivityType = "Note" | "Meeting" | "Call" | "Email";
 export type TaskStatus = "Open" | "Completed";
 export type PipelineCategory = "Fundraising" | "Co-invest" | "Deal Sourcing";
 export type PipelineStage = "Initial" | "Contacted" | "NDA" | "Engaged" | "Closed";
+export type PipelineEntryStatus = "Active" | "Closed";
+export type PipelineParentType = "Fund" | "Deal";
 
 export const PIPELINE_STAGES: PipelineStage[] = ["Initial", "Contacted", "NDA", "Engaged", "Closed"];
 export const PIPELINE_CATEGORIES: PipelineCategory[] = ["Fundraising", "Co-invest", "Deal Sourcing"];
@@ -53,6 +55,8 @@ export interface Pipeline {
   id: string;
   name: string;
   category: PipelineCategory;
+  parentType?: PipelineParentType;
+  parentName?: string;
 }
 
 export interface PipelineEntry {
@@ -60,7 +64,9 @@ export interface PipelineEntry {
   pipelineId: string;
   companyId: string;
   stage: PipelineStage;
-  notes: string;
+  nextStep: string;
+  lastActivityDate: string;
+  status: PipelineEntryStatus;
 }
 
 interface AppContextType {
@@ -77,7 +83,7 @@ interface AppContextType {
   completeTask: (id: string) => void;
   addPipeline: (pipeline: Omit<Pipeline, "id">) => void;
   addPipelineEntry: (entry: Omit<PipelineEntry, "id">) => void;
-  updatePipelineEntryStage: (id: string, stage: PipelineStage) => void;
+  updatePipelineEntry: (id: string, updates: Partial<Pick<PipelineEntry, "stage" | "nextStep" | "status">>) => void;
   removePipelineEntry: (id: string) => void;
 }
 
@@ -128,20 +134,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ]);
 
   const [pipelines, setPipelines] = useState<Pipeline[]>([
-    { id: "p1", name: "Series B Fundraise", category: "Fundraising" },
+    { id: "p1", name: "Series B Fundraise", category: "Fundraising", parentType: "Fund", parentName: "Acme Growth Fund III" },
     { id: "p2", name: "Q2 Deal Sourcing", category: "Deal Sourcing" },
-    { id: "p3", name: "Co-invest Opportunities", category: "Co-invest" },
+    { id: "p3", name: "Co-invest Opportunities", category: "Co-invest", parentType: "Deal", parentName: "Project Horizon" },
   ]);
 
   const [pipelineEntries, setPipelineEntries] = useState<PipelineEntry[]>([
-    { id: "pe1", pipelineId: "p1", companyId: "1", stage: "Engaged", notes: "Interested in leading the round" },
-    { id: "pe2", pipelineId: "p1", companyId: "2", stage: "NDA", notes: "NDA sent, awaiting signature" },
-    { id: "pe3", pipelineId: "p1", companyId: "3", stage: "Contacted", notes: "Intro call scheduled" },
-    { id: "pe4", pipelineId: "p2", companyId: "3", stage: "Initial", notes: "" },
-    { id: "pe5", pipelineId: "p2", companyId: "4", stage: "Contacted", notes: "Refinancing opportunity flagged" },
-    { id: "pe6", pipelineId: "p2", companyId: "5", stage: "NDA", notes: "Working through due diligence" },
-    { id: "pe7", pipelineId: "p3", companyId: "1", stage: "Engaged", notes: "" },
-    { id: "pe8", pipelineId: "p3", companyId: "2", stage: "Initial", notes: "" },
+    { id: "pe1", pipelineId: "p1", companyId: "1", stage: "Engaged",   nextStep: "Send updated financial model",        lastActivityDate: "2026-04-01", status: "Active" },
+    { id: "pe2", pipelineId: "p1", companyId: "2", stage: "NDA",       nextStep: "Chase NDA counter-signature",          lastActivityDate: "2026-03-28", status: "Active" },
+    { id: "pe3", pipelineId: "p1", companyId: "3", stage: "Contacted", nextStep: "Schedule follow-up call",              lastActivityDate: "2026-02-10", status: "Active" },
+    { id: "pe4", pipelineId: "p2", companyId: "3", stage: "Initial",   nextStep: "Research target sectors",              lastActivityDate: "2026-02-10", status: "Active" },
+    { id: "pe5", pipelineId: "p2", companyId: "4", stage: "Contacted", nextStep: "Draft refinancing term sheet",         lastActivityDate: "2026-03-05", status: "Active" },
+    { id: "pe6", pipelineId: "p2", companyId: "5", stage: "NDA",       nextStep: "Complete legal DD checklist",          lastActivityDate: "2026-04-07", status: "Active" },
+    { id: "pe7", pipelineId: "p3", companyId: "1", stage: "Engaged",   nextStep: "Confirm co-invest allocation",         lastActivityDate: "2026-04-01", status: "Active" },
+    { id: "pe8", pipelineId: "p3", companyId: "2", stage: "Initial",   nextStep: "Set up introductory call",             lastActivityDate: "2026-03-10", status: "Active" },
   ]);
 
   const addCompany = (company: Omit<Company, "id">) =>
@@ -150,8 +156,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addContact = (contact: Omit<Contact, "id">) =>
     setContacts((prev) => [...prev, { ...contact, id: uid() }]);
 
-  const addActivity = (activity: Omit<Activity, "id">) =>
-    setActivities((prev) => [...prev, { ...activity, id: uid() }]);
+  const addActivity = (activity: Omit<Activity, "id">) => {
+    const newActivity = { ...activity, id: uid() };
+    setActivities((prev) => [...prev, newActivity]);
+    if (activity.companyId) {
+      setPipelineEntries((prev) =>
+        prev.map((e) =>
+          e.companyId === activity.companyId && e.status === "Active"
+            ? { ...e, lastActivityDate: activity.date }
+            : e
+        )
+      );
+    }
+  };
 
   const addTask = (task: Omit<Task, "id">) =>
     setTasks((prev) => [...prev, { ...task, id: uid() }]);
@@ -165,8 +182,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addPipelineEntry = (entry: Omit<PipelineEntry, "id">) =>
     setPipelineEntries((prev) => [...prev, { ...entry, id: uid() }]);
 
-  const updatePipelineEntryStage = (id: string, stage: PipelineStage) =>
-    setPipelineEntries((prev) => prev.map((e) => e.id === id ? { ...e, stage } : e));
+  const updatePipelineEntry = (id: string, updates: Partial<Pick<PipelineEntry, "stage" | "nextStep" | "status">>) =>
+    setPipelineEntries((prev) => prev.map((e) => e.id === id ? { ...e, ...updates } : e));
 
   const removePipelineEntry = (id: string) =>
     setPipelineEntries((prev) => prev.filter((e) => e.id !== id));
@@ -175,7 +192,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider value={{
       companies, contacts, activities, tasks, pipelines, pipelineEntries,
       addCompany, addContact, addActivity, addTask, completeTask,
-      addPipeline, addPipelineEntry, updatePipelineEntryStage, removePipelineEntry,
+      addPipeline, addPipelineEntry, updatePipelineEntry, removePipelineEntry,
     }}>
       {children}
     </AppContext.Provider>
@@ -183,7 +200,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 }
 
 export function useApp() {
-  const context = useContext(AppContext);
-  if (context === undefined) throw new Error("useApp must be used within an AppProvider");
-  return context;
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error("useApp must be used within an AppProvider");
+  return ctx;
 }

@@ -1,26 +1,46 @@
 import { useRoute, Link } from "wouter";
-import { useApp, CompanyType } from "@/lib/data-context";
-import { ArrowLeft, Building2, Mail } from "lucide-react";
+import { useApp, CompanyType, PipelineCategory, PipelineStage } from "@/lib/data-context";
+import { ArrowLeft, Building2, Mail, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { TaskList } from "@/components/task-list";
 
 const TYPE_BADGE_STYLES: Record<CompanyType, string> = {
-  "Investor": "bg-violet-100 text-violet-800 border-violet-200",
-  "Bank": "bg-blue-100 text-blue-800 border-blue-200",
+  "Investor":        "bg-violet-100 text-violet-800 border-violet-200",
+  "Bank":            "bg-blue-100 text-blue-800 border-blue-200",
   "Investment Bank": "bg-sky-100 text-sky-800 border-sky-200",
-  "Borrower": "bg-amber-100 text-amber-800 border-amber-200",
-  "Service Provider": "bg-slate-100 text-slate-700 border-slate-200",
+  "Borrower":        "bg-amber-100 text-amber-800 border-amber-200",
+  "Service Provider":"bg-slate-100 text-slate-700 border-slate-200",
+};
+
+const CATEGORY_STYLES: Record<PipelineCategory, string> = {
+  "Fundraising":   "bg-violet-100 text-violet-800 border-violet-200",
+  "Co-invest":     "bg-sky-100 text-sky-800 border-sky-200",
+  "Deal Sourcing": "bg-amber-100 text-amber-800 border-amber-200",
+};
+
+const STAGE_STYLES: Record<PipelineStage, string> = {
+  Initial:   "text-slate-600",
+  Contacted: "text-blue-700",
+  NDA:       "text-amber-700",
+  Engaged:   "text-violet-700",
+  Closed:    "text-emerald-700",
 };
 
 export default function CompanyDetail() {
   const [, params] = useRoute("/companies/:id");
-  const { companies, contacts } = useApp();
+  const { companies, contacts, pipelines, pipelineEntries } = useApp();
 
   const id = params?.id;
   const company = companies.find((c) => c.id === id);
   const companyContacts = contacts.filter((c) => c.companyId === id);
+
+  const companyPipelineEntries = pipelineEntries.filter((e) => e.companyId === id);
+  const companyPipelines = companyPipelineEntries.map((entry) => ({
+    entry,
+    pipeline: pipelines.find((p) => p.id === entry.pipelineId),
+  })).filter((x) => x.pipeline != null);
 
   if (!company) {
     return (
@@ -138,6 +158,44 @@ export default function CompanyDetail() {
               </div>
             </CardContent>
           </Card>
+
+          {companyPipelines.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <GitBranch className="w-4 h-4 text-muted-foreground" />
+                  Pipelines
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {companyPipelines.map(({ entry, pipeline }) => (
+                  <Link
+                    key={entry.id}
+                    href={`/pipelines/${pipeline!.id}`}
+                    className="block p-3 border rounded-lg hover:bg-muted/40 transition-colors group"
+                    data-testid={`pipeline-ref-${entry.id}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium group-hover:text-primary transition-colors truncate">
+                        {pipeline!.name}
+                      </p>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border flex-shrink-0 ${CATEGORY_STYLES[pipeline!.category]}`}>
+                        {pipeline!.category}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-xs font-semibold ${STAGE_STYLES[entry.stage]}`}>
+                        {entry.stage}
+                      </span>
+                      {entry.nextStep && (
+                        <span className="text-xs text-muted-foreground truncate">· {entry.nextStep}</span>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
