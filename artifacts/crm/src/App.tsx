@@ -9,6 +9,8 @@ import Companies from "@/pages/companies/index";
 import CompanyDetail from "@/pages/companies/detail";
 import Contacts from "@/pages/contacts/index";
 import ContactDetail from "@/pages/contacts/detail";
+import Pipelines from "@/pages/pipelines/index";
+import PipelineDetail from "@/pages/pipelines/detail";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -22,6 +24,8 @@ function Router() {
         <Route path="/companies/:id" component={CompanyDetail} />
         <Route path="/contacts" component={Contacts} />
         <Route path="/contacts/:id" component={ContactDetail} />
+        <Route path="/pipelines" component={Pipelines} />
+        <Route path="/pipelines/:id" component={PipelineDetail} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

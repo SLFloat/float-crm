@@ -4,6 +4,11 @@ export type CompanyType = "Investor" | "Bank" | "Investment Bank" | "Borrower" |
 export type RelationshipStrength = "Strong" | "Medium" | "Weak";
 export type ActivityType = "Note" | "Meeting" | "Call" | "Email";
 export type TaskStatus = "Open" | "Completed";
+export type PipelineCategory = "Fundraising" | "Co-invest" | "Deal Sourcing";
+export type PipelineStage = "Initial" | "Contacted" | "NDA" | "Engaged" | "Closed";
+
+export const PIPELINE_STAGES: PipelineStage[] = ["Initial", "Contacted", "NDA", "Engaged", "Closed"];
+export const PIPELINE_CATEGORIES: PipelineCategory[] = ["Fundraising", "Co-invest", "Deal Sourcing"];
 
 export interface Company {
   id: string;
@@ -44,19 +49,43 @@ export interface Task {
   contactId?: string;
 }
 
+export interface Pipeline {
+  id: string;
+  name: string;
+  category: PipelineCategory;
+}
+
+export interface PipelineEntry {
+  id: string;
+  pipelineId: string;
+  companyId: string;
+  stage: PipelineStage;
+  notes: string;
+}
+
 interface AppContextType {
   companies: Company[];
   contacts: Contact[];
   activities: Activity[];
   tasks: Task[];
+  pipelines: Pipeline[];
+  pipelineEntries: PipelineEntry[];
   addCompany: (company: Omit<Company, "id">) => void;
   addContact: (contact: Omit<Contact, "id">) => void;
   addActivity: (activity: Omit<Activity, "id">) => void;
   addTask: (task: Omit<Task, "id">) => void;
   completeTask: (id: string) => void;
+  addPipeline: (pipeline: Omit<Pipeline, "id">) => void;
+  addPipelineEntry: (entry: Omit<PipelineEntry, "id">) => void;
+  updatePipelineEntryStage: (id: string, stage: PipelineStage) => void;
+  removePipelineEntry: (id: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+function uid() {
+  return Math.random().toString(36).substr(2, 9);
+}
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [companies, setCompanies] = useState<Company[]>([
@@ -98,28 +127,56 @@ export function AppProvider({ children }: { children: ReactNode }) {
     { id: "t8", title: "Send loan facility summary to Carol Williams", dueDate: "2026-04-22", status: "Open", companyId: "2", contactId: "3" },
   ]);
 
-  const addCompany = (company: Omit<Company, "id">) => {
-    setCompanies((prev) => [...prev, { ...company, id: Math.random().toString(36).substr(2, 9) }]);
-  };
+  const [pipelines, setPipelines] = useState<Pipeline[]>([
+    { id: "p1", name: "Series B Fundraise", category: "Fundraising" },
+    { id: "p2", name: "Q2 Deal Sourcing", category: "Deal Sourcing" },
+    { id: "p3", name: "Co-invest Opportunities", category: "Co-invest" },
+  ]);
 
-  const addContact = (contact: Omit<Contact, "id">) => {
-    setContacts((prev) => [...prev, { ...contact, id: Math.random().toString(36).substr(2, 9) }]);
-  };
+  const [pipelineEntries, setPipelineEntries] = useState<PipelineEntry[]>([
+    { id: "pe1", pipelineId: "p1", companyId: "1", stage: "Engaged", notes: "Interested in leading the round" },
+    { id: "pe2", pipelineId: "p1", companyId: "2", stage: "NDA", notes: "NDA sent, awaiting signature" },
+    { id: "pe3", pipelineId: "p1", companyId: "3", stage: "Contacted", notes: "Intro call scheduled" },
+    { id: "pe4", pipelineId: "p2", companyId: "3", stage: "Initial", notes: "" },
+    { id: "pe5", pipelineId: "p2", companyId: "4", stage: "Contacted", notes: "Refinancing opportunity flagged" },
+    { id: "pe6", pipelineId: "p2", companyId: "5", stage: "NDA", notes: "Working through due diligence" },
+    { id: "pe7", pipelineId: "p3", companyId: "1", stage: "Engaged", notes: "" },
+    { id: "pe8", pipelineId: "p3", companyId: "2", stage: "Initial", notes: "" },
+  ]);
 
-  const addActivity = (activity: Omit<Activity, "id">) => {
-    setActivities((prev) => [...prev, { ...activity, id: Math.random().toString(36).substr(2, 9) }]);
-  };
+  const addCompany = (company: Omit<Company, "id">) =>
+    setCompanies((prev) => [...prev, { ...company, id: uid() }]);
 
-  const addTask = (task: Omit<Task, "id">) => {
-    setTasks((prev) => [...prev, { ...task, id: Math.random().toString(36).substr(2, 9) }]);
-  };
+  const addContact = (contact: Omit<Contact, "id">) =>
+    setContacts((prev) => [...prev, { ...contact, id: uid() }]);
 
-  const completeTask = (id: string) => {
+  const addActivity = (activity: Omit<Activity, "id">) =>
+    setActivities((prev) => [...prev, { ...activity, id: uid() }]);
+
+  const addTask = (task: Omit<Task, "id">) =>
+    setTasks((prev) => [...prev, { ...task, id: uid() }]);
+
+  const completeTask = (id: string) =>
     setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: "Completed" } : t));
-  };
+
+  const addPipeline = (pipeline: Omit<Pipeline, "id">) =>
+    setPipelines((prev) => [...prev, { ...pipeline, id: uid() }]);
+
+  const addPipelineEntry = (entry: Omit<PipelineEntry, "id">) =>
+    setPipelineEntries((prev) => [...prev, { ...entry, id: uid() }]);
+
+  const updatePipelineEntryStage = (id: string, stage: PipelineStage) =>
+    setPipelineEntries((prev) => prev.map((e) => e.id === id ? { ...e, stage } : e));
+
+  const removePipelineEntry = (id: string) =>
+    setPipelineEntries((prev) => prev.filter((e) => e.id !== id));
 
   return (
-    <AppContext.Provider value={{ companies, contacts, activities, tasks, addCompany, addContact, addActivity, addTask, completeTask }}>
+    <AppContext.Provider value={{
+      companies, contacts, activities, tasks, pipelines, pipelineEntries,
+      addCompany, addContact, addActivity, addTask, completeTask,
+      addPipeline, addPipelineEntry, updatePipelineEntryStage, removePipelineEntry,
+    }}>
       {children}
     </AppContext.Provider>
   );
@@ -127,8 +184,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 export function useApp() {
   const context = useContext(AppContext);
-  if (context === undefined) {
-    throw new Error("useApp must be used within an AppProvider");
-  }
+  if (context === undefined) throw new Error("useApp must be used within an AppProvider");
   return context;
 }

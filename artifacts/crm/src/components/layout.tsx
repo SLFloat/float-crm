@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Building2, Users } from "lucide-react";
+import { LayoutDashboard, Building2, Users, GitBranch } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface LayoutProps {
@@ -13,11 +13,11 @@ export default function Layout({ children }: LayoutProps) {
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/companies", label: "Companies", icon: Building2 },
     { href: "/contacts", label: "Contacts", icon: Users },
+    { href: "/pipelines", label: "Pipelines", icon: GitBranch },
   ];
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Sidebar */}
       <aside className="w-64 border-r bg-card flex-shrink-0">
         <div className="h-16 flex items-center px-6 border-b">
           <div className="flex items-center gap-2 font-bold text-lg text-primary">
@@ -50,7 +50,6 @@ export default function Layout({ children }: LayoutProps) {
         </nav>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
         <div className="flex-1 p-8 overflow-auto">
           <div className="max-w-6xl mx-auto">
