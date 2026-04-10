@@ -4,6 +4,7 @@ import { ArrowLeft, Building2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityTimeline } from "@/components/activity-timeline";
+import { TaskList } from "@/components/task-list";
 
 const TYPE_BADGE_STYLES: Record<CompanyType, string> = {
   "Investor": "bg-violet-100 text-violet-800 border-violet-200",
@@ -59,10 +60,8 @@ export default function CompanyDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <ActivityTimeline
-            companyId={company.id}
-            availableContacts={companyContacts}
-          />
+          <TaskList companyId={company.id} availableContacts={companyContacts} />
+          <ActivityTimeline companyId={company.id} availableContacts={companyContacts} />
 
           <Card>
             <CardHeader>

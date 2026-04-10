@@ -3,6 +3,7 @@ import { useApp, RelationshipStrength } from "@/lib/data-context";
 import { ArrowLeft, User, Building2, Mail, Phone, Briefcase, Linkedin, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityTimeline } from "@/components/activity-timeline";
+import { TaskList } from "@/components/task-list";
 
 const STRENGTH_STYLES: Record<RelationshipStrength, string> = {
   Strong: "bg-emerald-100 text-emerald-800 border-emerald-200",
@@ -91,6 +92,7 @@ export default function ContactDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          <TaskList contactId={contact.id} />
           <ActivityTimeline contactId={contact.id} />
 
           <Card>
