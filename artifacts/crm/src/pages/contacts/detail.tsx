@@ -1,7 +1,42 @@
 import { useRoute, Link } from "wouter";
-import { useApp } from "@/lib/data-context";
-import { ArrowLeft, User, Building2, Mail } from "lucide-react";
+import { useApp, RelationshipStrength } from "@/lib/data-context";
+import { ArrowLeft, User, Building2, Mail, Phone, Briefcase, Linkedin, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const STRENGTH_STYLES: Record<RelationshipStrength, string> = {
+  Strong: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  Medium: "bg-amber-100 text-amber-800 border-amber-200",
+  Weak: "bg-slate-100 text-slate-600 border-slate-200",
+};
+
+function DetailRow({ icon, label, value, href }: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | undefined | null;
+  href?: string;
+}) {
+  if (!value) return null;
+  return (
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 text-muted-foreground">{icon}</div>
+      <div>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
+        {href ? (
+          <a
+            href={href.startsWith("http") ? href : `https://${href}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline mt-0.5 block"
+          >
+            {value}
+          </a>
+        ) : (
+          <p className="text-sm text-foreground mt-0.5">{value}</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function ContactDetail() {
   const [, params] = useRoute("/contacts/:id");
@@ -22,6 +57,15 @@ export default function ContactDetail() {
     );
   }
 
+  const formatDate = (date: string) => {
+    if (!date) return null;
+    try {
+      return new Date(date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    } catch {
+      return date;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -30,63 +74,123 @@ export default function ContactDetail() {
           Back to Contacts
         </Link>
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
             <User className="w-6 h-6" />
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{contact.name}</h1>
-            <div className="mt-1 flex items-center gap-2 text-muted-foreground">
-              <Mail className="w-4 h-4" />
-              <span>{contact.email}</span>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {contact.title && (
+                <span className="text-muted-foreground text-sm">{contact.title}</span>
+              )}
+              {contact.title && contact.role && (
+                <span className="text-muted-foreground/40 text-sm">·</span>
+              )}
+              {contact.role && (
+                <span className="text-muted-foreground text-sm">{contact.role}</span>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-muted-foreground" />
-              Company Affiliation
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {company ? (
-              <div className="p-4 border rounded-lg bg-muted/20">
-                <Link href={`/companies/${company.id}`} className="font-semibold text-lg hover:underline text-primary block">
-                  {company.name}
-                </Link>
-                <p className="text-sm text-muted-foreground mt-1">{company.type}</p>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No company affiliated.</p>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Contact Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <DetailRow
+                icon={<Mail className="w-4 h-4" />}
+                label="Email"
+                value={contact.email}
+                href={`mailto:${contact.email}`}
+              />
+              <DetailRow
+                icon={<Phone className="w-4 h-4" />}
+                label="Phone"
+                value={contact.phone}
+                href={`tel:${contact.phone}`}
+              />
+              <DetailRow
+                icon={<Linkedin className="w-4 h-4" />}
+                label="LinkedIn"
+                value={contact.linkedin}
+                href={contact.linkedin}
+              />
+              <DetailRow
+                icon={<Briefcase className="w-4 h-4" />}
+                label="Title"
+                value={contact.title}
+              />
+              <DetailRow
+                icon={<Briefcase className="w-4 h-4" />}
+                label="Role"
+                value={contact.role}
+              />
+              <DetailRow
+                icon={<Calendar className="w-4 h-4" />}
+                label="Last Contact Date"
+                value={formatDate(contact.lastContactDate)}
+              />
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <User className="w-5 h-5 text-muted-foreground" />
-              Contact Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm">
-            <div>
-              <p className="text-muted-foreground font-medium">Email Address</p>
-              <p className="mt-1 font-medium">{contact.email}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground font-medium">Internal ID</p>
-              <p className="mt-1 font-mono text-xs">{contact.id}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground font-medium">Record Created</p>
-              <p className="mt-1">Just now</p>
-            </div>
-          </CardContent>
-        </Card>
+          {company && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-muted-foreground" />
+                  Company
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="p-4 border rounded-lg bg-muted/20 flex items-center justify-between">
+                  <div>
+                    <Link href={`/companies/${company.id}`} className="font-semibold hover:underline text-primary block">
+                      {company.name}
+                    </Link>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-muted-foreground">{company.type}</span>
+                      {company.subType && (
+                        <>
+                          <span className="text-muted-foreground/40 text-xs">·</span>
+                          <span className="text-xs text-muted-foreground">{company.subType}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <Link href={`/companies/${company.id}`} className="text-xs text-primary hover:underline">
+                    View company
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Relationship</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5 text-sm">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Strength</p>
+                <span className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-medium border ${STRENGTH_STYLES[contact.relationshipStrength]}`}>
+                  {contact.relationshipStrength}
+                </span>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Last Contact</p>
+                <p className="text-foreground">
+                  {formatDate(contact.lastContactDate) ?? <span className="text-muted-foreground/50 italic">Not recorded</span>}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

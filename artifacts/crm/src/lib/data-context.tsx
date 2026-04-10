@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 
 export type CompanyType = "Investor" | "Bank" | "Investment Bank" | "Borrower" | "Service Provider";
+export type RelationshipStrength = "Strong" | "Medium" | "Weak";
 
 export interface Company {
   id: string;
@@ -14,6 +15,12 @@ export interface Contact {
   id: string;
   name: string;
   email: string;
+  phone: string;
+  title: string;
+  role: string;
+  linkedin: string;
+  relationshipStrength: RelationshipStrength;
+  lastContactDate: string;
   companyId: string;
 }
 
@@ -36,13 +43,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ]);
 
   const [contacts, setContacts] = useState<Contact[]>([
-    { id: "1", name: "Alice Smith", email: "alice@acmecapital.com", companyId: "1" },
-    { id: "2", name: "Bob Jones", email: "bob@acmecapital.com", companyId: "1" },
-    { id: "3", name: "Carol Williams", email: "carol@globexbank.com", companyId: "2" },
-    { id: "4", name: "Dave Brown", email: "dave@initech.com", companyId: "3" },
-    { id: "5", name: "Eve Davis", email: "eve@soylent.com", companyId: "4" },
-    { id: "6", name: "Frank Miller", email: "frank@massivedynamic.com", companyId: "5" },
-    { id: "7", name: "Grace Wilson", email: "grace@massivedynamic.com", companyId: "5" },
+    {
+      id: "1", name: "Alice Smith", email: "alice@acmecapital.com",
+      phone: "+1 212 555 0101", title: "Managing Director", role: "Lead Investor",
+      linkedin: "linkedin.com/in/alice-smith", relationshipStrength: "Strong",
+      lastContactDate: "2026-04-01", companyId: "1",
+    },
+    {
+      id: "2", name: "Bob Jones", email: "bob@acmecapital.com",
+      phone: "+1 212 555 0102", title: "Vice President", role: "Deal Sourcing",
+      linkedin: "linkedin.com/in/bob-jones", relationshipStrength: "Medium",
+      lastContactDate: "2026-03-15", companyId: "1",
+    },
+    {
+      id: "3", name: "Carol Williams", email: "carol@globexbank.com",
+      phone: "+1 312 555 0201", title: "Director", role: "Relationship Manager",
+      linkedin: "linkedin.com/in/carol-williams", relationshipStrength: "Strong",
+      lastContactDate: "2026-03-28", companyId: "2",
+    },
+    {
+      id: "4", name: "Dave Brown", email: "dave@initech.com",
+      phone: "+1 415 555 0301", title: "Senior Associate", role: "M&A Analyst",
+      linkedin: "linkedin.com/in/dave-brown", relationshipStrength: "Weak",
+      lastContactDate: "2026-02-10", companyId: "3",
+    },
+    {
+      id: "5", name: "Eve Davis", email: "eve@soylent.com",
+      phone: "+1 646 555 0401", title: "CFO", role: "Treasury",
+      linkedin: "linkedin.com/in/eve-davis", relationshipStrength: "Medium",
+      lastContactDate: "2026-03-05", companyId: "4",
+    },
+    {
+      id: "6", name: "Frank Miller", email: "frank@massivedynamic.com",
+      phone: "+1 617 555 0501", title: "Partner", role: "Legal Counsel",
+      linkedin: "linkedin.com/in/frank-miller", relationshipStrength: "Strong",
+      lastContactDate: "2026-04-07", companyId: "5",
+    },
+    {
+      id: "7", name: "Grace Wilson", email: "grace@massivedynamic.com",
+      phone: "+1 617 555 0502", title: "Associate", role: "Compliance",
+      linkedin: "linkedin.com/in/grace-wilson", relationshipStrength: "Weak",
+      lastContactDate: "2026-01-22", companyId: "5",
+    },
   ]);
 
   const addCompany = (company: Omit<Company, "id">) => {
