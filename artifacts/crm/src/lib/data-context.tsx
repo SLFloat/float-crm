@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode } from "react";
 
 export type CompanyType = "Investor" | "Bank" | "Investment Bank" | "Borrower" | "Service Provider";
 export type RelationshipStrength = "Strong" | "Medium" | "Weak";
+export type ActivityType = "Note" | "Meeting" | "Call" | "Email";
 
 export interface Company {
   id: string;
@@ -24,11 +25,22 @@ export interface Contact {
   companyId: string;
 }
 
+export interface Activity {
+  id: string;
+  type: ActivityType;
+  content: string;
+  date: string;
+  companyId?: string;
+  contactId?: string;
+}
+
 interface AppContextType {
   companies: Company[];
   contacts: Contact[];
+  activities: Activity[];
   addCompany: (company: Omit<Company, "id">) => void;
   addContact: (contact: Omit<Contact, "id">) => void;
+  addActivity: (activity: Omit<Activity, "id">) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -87,18 +99,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
   ]);
 
+  const [activities, setActivities] = useState<Activity[]>([
+    {
+      id: "a1", type: "Meeting", content: "Intro call to discuss Series B participation. Alice is interested but wants to see updated financials first.",
+      date: "2026-04-01", companyId: "1", contactId: "1",
+    },
+    {
+      id: "a2", type: "Note", content: "Bob flagged a competing term sheet from Sequoia. Need to move quickly on our proposal.",
+      date: "2026-03-15", companyId: "1", contactId: "2",
+    },
+    {
+      id: "a3", type: "Email", content: "Sent NDA and deal room access to Carol. Awaiting counter-signature.",
+      date: "2026-03-28", companyId: "2", contactId: "3",
+    },
+    {
+      id: "a4", type: "Call", content: "15-min check-in with Carol. Loan facility terms look favorable. Follow up next week.",
+      date: "2026-03-10", companyId: "2", contactId: "3",
+    },
+    {
+      id: "a5", type: "Note", content: "Initiated M&A mandate discussion with Dave. Company evaluating three potential targets in DACH region.",
+      date: "2026-02-10", companyId: "3", contactId: "4",
+    },
+    {
+      id: "a6", type: "Meeting", content: "Board meeting observer call. Eve confirmed they intend to refinance the 2028 notes early.",
+      date: "2026-03-05", companyId: "4", contactId: "5",
+    },
+    {
+      id: "a7", type: "Email", content: "Shared draft credit agreement with Frank for review. Flagged covenants section for discussion.",
+      date: "2026-04-07", companyId: "5", contactId: "6",
+    },
+  ]);
+
   const addCompany = (company: Omit<Company, "id">) => {
-    const newCompany = { ...company, id: Math.random().toString(36).substr(2, 9) };
-    setCompanies((prev) => [...prev, newCompany]);
+    setCompanies((prev) => [...prev, { ...company, id: Math.random().toString(36).substr(2, 9) }]);
   };
 
   const addContact = (contact: Omit<Contact, "id">) => {
-    const newContact = { ...contact, id: Math.random().toString(36).substr(2, 9) };
-    setContacts((prev) => [...prev, newContact]);
+    setContacts((prev) => [...prev, { ...contact, id: Math.random().toString(36).substr(2, 9) }]);
+  };
+
+  const addActivity = (activity: Omit<Activity, "id">) => {
+    setActivities((prev) => [...prev, { ...activity, id: Math.random().toString(36).substr(2, 9) }]);
   };
 
   return (
-    <AppContext.Provider value={{ companies, contacts, addCompany, addContact }}>
+    <AppContext.Provider value={{ companies, contacts, activities, addCompany, addContact, addActivity }}>
       {children}
     </AppContext.Provider>
   );

@@ -3,6 +3,7 @@ import { useApp, CompanyType } from "@/lib/data-context";
 import { ArrowLeft, Building2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ActivityTimeline } from "@/components/activity-timeline";
 
 const TYPE_BADGE_STYLES: Record<CompanyType, string> = {
   "Investor": "bg-violet-100 text-violet-800 border-violet-200",
@@ -45,9 +46,7 @@ export default function CompanyDetail() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{company.name}</h1>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${TYPE_BADGE_STYLES[company.type]}`}
-              >
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${TYPE_BADGE_STYLES[company.type]}`}>
                 {company.type}
               </span>
               {company.subType && (
@@ -59,10 +58,15 @@ export default function CompanyDetail() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="col-span-2">
+        <div className="lg:col-span-2 space-y-6">
+          <ActivityTimeline
+            companyId={company.id}
+            availableContacts={companyContacts}
+          />
+
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Associated Contacts</CardTitle>
+              <CardTitle className="text-base">Contacts ({companyContacts.length})</CardTitle>
             </CardHeader>
             <CardContent>
               {companyContacts.length === 0 ? (
@@ -72,19 +76,21 @@ export default function CompanyDetail() {
                   {companyContacts.map((contact) => (
                     <div
                       key={contact.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
                       data-testid={`contact-row-${contact.id}`}
                     >
                       <div>
-                        <Link href={`/contacts/${contact.id}`} className="font-medium hover:underline text-primary block">
+                        <Link href={`/contacts/${contact.id}`} className="font-medium hover:underline text-primary block text-sm">
                           {contact.name}
                         </Link>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
-                          <Mail className="w-3 h-3" />
-                          {contact.email}
+                        <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                          {contact.title && <span>{contact.title}</span>}
+                          <span className="flex items-center gap-1">
+                            <Mail className="w-3 h-3" />{contact.email}
+                          </span>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm" asChild>
+                      <Button variant="ghost" size="sm" asChild className="text-xs h-7">
                         <Link href={`/contacts/${contact.id}`}>View</Link>
                       </Button>
                     </div>
@@ -98,14 +104,12 @@ export default function CompanyDetail() {
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Details</CardTitle>
+              <CardTitle className="text-base">Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-5 text-sm">
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Type</p>
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${TYPE_BADGE_STYLES[company.type]}`}
-                >
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${TYPE_BADGE_STYLES[company.type]}`}>
                   {company.type}
                 </span>
               </div>

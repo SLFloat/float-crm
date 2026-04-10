@@ -2,6 +2,7 @@ import { useRoute, Link } from "wouter";
 import { useApp, RelationshipStrength } from "@/lib/data-context";
 import { ArrowLeft, User, Building2, Mail, Phone, Briefcase, Linkedin, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ActivityTimeline } from "@/components/activity-timeline";
 
 const STRENGTH_STYLES: Record<RelationshipStrength, string> = {
   Strong: "bg-emerald-100 text-emerald-800 border-emerald-200",
@@ -80,15 +81,9 @@ export default function ContactDetail() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{contact.name}</h1>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              {contact.title && (
-                <span className="text-muted-foreground text-sm">{contact.title}</span>
-              )}
-              {contact.title && contact.role && (
-                <span className="text-muted-foreground/40 text-sm">·</span>
-              )}
-              {contact.role && (
-                <span className="text-muted-foreground text-sm">{contact.role}</span>
-              )}
+              {contact.title && <span className="text-muted-foreground text-sm">{contact.title}</span>}
+              {contact.title && contact.role && <span className="text-muted-foreground/40 text-sm">·</span>}
+              {contact.role && <span className="text-muted-foreground text-sm">{contact.role}</span>}
             </div>
           </div>
         </div>
@@ -96,44 +91,19 @@ export default function ContactDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          <ActivityTimeline contactId={contact.id} />
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Contact Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <DetailRow
-                icon={<Mail className="w-4 h-4" />}
-                label="Email"
-                value={contact.email}
-                href={`mailto:${contact.email}`}
-              />
-              <DetailRow
-                icon={<Phone className="w-4 h-4" />}
-                label="Phone"
-                value={contact.phone}
-                href={`tel:${contact.phone}`}
-              />
-              <DetailRow
-                icon={<Linkedin className="w-4 h-4" />}
-                label="LinkedIn"
-                value={contact.linkedin}
-                href={contact.linkedin}
-              />
-              <DetailRow
-                icon={<Briefcase className="w-4 h-4" />}
-                label="Title"
-                value={contact.title}
-              />
-              <DetailRow
-                icon={<Briefcase className="w-4 h-4" />}
-                label="Role"
-                value={contact.role}
-              />
-              <DetailRow
-                icon={<Calendar className="w-4 h-4" />}
-                label="Last Contact Date"
-                value={formatDate(contact.lastContactDate)}
-              />
+              <DetailRow icon={<Mail className="w-4 h-4" />} label="Email" value={contact.email} href={`mailto:${contact.email}`} />
+              <DetailRow icon={<Phone className="w-4 h-4" />} label="Phone" value={contact.phone} href={`tel:${contact.phone}`} />
+              <DetailRow icon={<Linkedin className="w-4 h-4" />} label="LinkedIn" value={contact.linkedin} href={contact.linkedin} />
+              <DetailRow icon={<Briefcase className="w-4 h-4" />} label="Title" value={contact.title} />
+              <DetailRow icon={<Briefcase className="w-4 h-4" />} label="Role" value={contact.role} />
+              <DetailRow icon={<Calendar className="w-4 h-4" />} label="Last Contact Date" value={formatDate(contact.lastContactDate)} />
             </CardContent>
           </Card>
 
