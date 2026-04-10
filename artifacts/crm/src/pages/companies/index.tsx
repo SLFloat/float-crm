@@ -13,37 +13,56 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
 
+const COMPANY_TYPES: CompanyType[] = [
+  "Investor",
+  "Bank",
+  "Investment Bank",
+  "Borrower",
+  "Service Provider",
+];
+
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  type: z.enum(["Client", "Partner", "Vendor", "Prospect"]),
+  type: z.enum(["Investor", "Bank", "Investment Bank", "Borrower", "Service Provider"]),
+  subType: z.string().optional().default(""),
+  tags: z.string().optional().default(""),
 });
+
+type FormValues = z.infer<typeof formSchema>;
+
+const TYPE_BADGE_STYLES: Record<CompanyType, string> = {
+  "Investor": "bg-violet-100 text-violet-800 border-violet-200",
+  "Bank": "bg-blue-100 text-blue-800 border-blue-200",
+  "Investment Bank": "bg-sky-100 text-sky-800 border-sky-200",
+  "Borrower": "bg-amber-100 text-amber-800 border-amber-200",
+  "Service Provider": "bg-slate-100 text-slate-700 border-slate-200",
+};
 
 export default function Companies() {
   const { companies, addCompany } = useApp();
   const [open, setOpen] = useState(false);
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      type: "Prospect",
+      type: "Borrower",
+      subType: "",
+      tags: "",
     },
   });
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    addCompany(values);
+  const onSubmit = (values: FormValues) => {
+    addCompany({
+      name: values.name,
+      type: values.type,
+      subType: values.subType ?? "",
+      tags: values.tags
+        ? values.tags.split(",").map((t) => t.trim()).filter(Boolean)
+        : [],
+    });
     setOpen(false);
     form.reset();
-  };
-
-  const getBadgeVariant = (type: CompanyType) => {
-    switch (type) {
-      case "Client": return "default";
-      case "Partner": return "secondary";
-      case "Vendor": return "outline";
-      case "Prospect": return "secondary"; // Using secondary for now, could be customized
-      default: return "default";
-    }
   };
 
   return (
@@ -61,7 +80,7 @@ export default function Companies() {
               Add Company
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Add New Company</DialogTitle>
             </DialogHeader>
@@ -74,7 +93,7 @@ export default function Companies() {
                     <FormItem>
                       <FormLabel>Company Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Acme Corp" {...field} data-testid="input-company-name" />
+                        <Input placeholder="e.g. Blackstone Group" {...field} data-testid="input-company-name" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -93,17 +112,44 @@ export default function Companies() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="Client">Client</SelectItem>
-                          <SelectItem value="Partner">Partner</SelectItem>
-                          <SelectItem value="Vendor">Vendor</SelectItem>
-                          <SelectItem value="Prospect">Prospect</SelectItem>
+                          {COMPANY_TYPES.map((t) => (
+                            <SelectItem key={t} value={t}>{t}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full" data-testid="button-submit-company">Save Company</Button>
+                <FormField
+                  control={form.control}
+                  name="subType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sub-type <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Venture Capital, M&A Advisory" {...field} data-testid="input-company-subtype" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tags <span className="text-muted-foreground font-normal">(comma-separated)</span></FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. tech, early-stage, lending" {...field} data-testid="input-company-tags" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full" data-testid="button-submit-company">
+                  Save Company
+                </Button>
               </form>
             </Form>
           </DialogContent>
@@ -116,13 +162,14 @@ export default function Companies() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Sub-type</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {companies.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={2} className="text-center text-muted-foreground h-24">
-                  No companies found.
+                <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
+                  No companies yet. Add your first one.
                 </TableCell>
               </TableRow>
             ) : (
@@ -134,7 +181,14 @@ export default function Companies() {
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={getBadgeVariant(company.type)}>{company.type}</Badge>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${TYPE_BADGE_STYLES[company.type]}`}
+                    >
+                      {company.type}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {company.subType || <span className="text-muted-foreground/50">—</span>}
                   </TableCell>
                 </TableRow>
               ))

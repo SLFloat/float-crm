@@ -1,11 +1,13 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 
-export type CompanyType = "Client" | "Partner" | "Vendor" | "Prospect";
+export type CompanyType = "Investor" | "Bank" | "Investment Bank" | "Borrower" | "Service Provider";
 
 export interface Company {
   id: string;
   name: string;
   type: CompanyType;
+  subType: string;
+  tags: string[];
 }
 
 export interface Contact {
@@ -26,17 +28,17 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [companies, setCompanies] = useState<Company[]>([
-    { id: "1", name: "Acme Corp", type: "Client" },
-    { id: "2", name: "Globex", type: "Partner" },
-    { id: "3", name: "Initech", type: "Vendor" },
-    { id: "4", name: "Soylent Corp", type: "Prospect" },
-    { id: "5", name: "Massive Dynamic", type: "Client" },
+    { id: "1", name: "Acme Capital", type: "Investor", subType: "Venture Capital", tags: ["tech", "early-stage"] },
+    { id: "2", name: "Globex Bank", type: "Bank", subType: "Commercial Bank", tags: ["corporate", "lending"] },
+    { id: "3", name: "Initech Securities", type: "Investment Bank", subType: "M&A Advisory", tags: ["advisory", "mid-market"] },
+    { id: "4", name: "Soylent Corp", type: "Borrower", subType: "Corporate Issuer", tags: ["high-yield", "consumer"] },
+    { id: "5", name: "Massive Dynamic", type: "Service Provider", subType: "Legal Counsel", tags: ["legal", "compliance"] },
   ]);
 
   const [contacts, setContacts] = useState<Contact[]>([
-    { id: "1", name: "Alice Smith", email: "alice@acme.com", companyId: "1" },
-    { id: "2", name: "Bob Jones", email: "bob@acme.com", companyId: "1" },
-    { id: "3", name: "Carol Williams", email: "carol@globex.com", companyId: "2" },
+    { id: "1", name: "Alice Smith", email: "alice@acmecapital.com", companyId: "1" },
+    { id: "2", name: "Bob Jones", email: "bob@acmecapital.com", companyId: "1" },
+    { id: "3", name: "Carol Williams", email: "carol@globexbank.com", companyId: "2" },
     { id: "4", name: "Dave Brown", email: "dave@initech.com", companyId: "3" },
     { id: "5", name: "Eve Davis", email: "eve@soylent.com", companyId: "4" },
     { id: "6", name: "Frank Miller", email: "frank@massivedynamic.com", companyId: "5" },

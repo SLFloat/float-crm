@@ -1,9 +1,16 @@
 import { useRoute, Link } from "wouter";
-import { useApp } from "@/lib/data-context";
+import { useApp, CompanyType } from "@/lib/data-context";
 import { ArrowLeft, Building2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+
+const TYPE_BADGE_STYLES: Record<CompanyType, string> = {
+  "Investor": "bg-violet-100 text-violet-800 border-violet-200",
+  "Bank": "bg-blue-100 text-blue-800 border-blue-200",
+  "Investment Bank": "bg-sky-100 text-sky-800 border-sky-200",
+  "Borrower": "bg-amber-100 text-amber-800 border-amber-200",
+  "Service Provider": "bg-slate-100 text-slate-700 border-slate-200",
+};
 
 export default function CompanyDetail() {
   const [, params] = useRoute("/companies/:id");
@@ -37,8 +44,15 @@ export default function CompanyDetail() {
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{company.name}</h1>
-            <div className="mt-1">
-              <Badge variant="secondary">{company.type}</Badge>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${TYPE_BADGE_STYLES[company.type]}`}
+              >
+                {company.type}
+              </span>
+              {company.subType && (
+                <span className="text-sm text-muted-foreground">{company.subType}</span>
+              )}
             </div>
           </div>
         </div>
@@ -52,16 +66,20 @@ export default function CompanyDetail() {
             </CardHeader>
             <CardContent>
               {companyContacts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No contacts found for this company.</p>
+                <p className="text-sm text-muted-foreground">No contacts associated with this company.</p>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {companyContacts.map((contact) => (
-                    <div key={contact.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div
+                      key={contact.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      data-testid={`contact-row-${contact.id}`}
+                    >
                       <div>
                         <Link href={`/contacts/${contact.id}`} className="font-medium hover:underline text-primary block">
                           {contact.name}
                         </Link>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
                           <Mail className="w-3 h-3" />
                           {contact.email}
                         </div>
@@ -77,19 +95,43 @@ export default function CompanyDetail() {
           </Card>
         </div>
 
-        <div>
+        <div className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Details</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-sm">
+            <CardContent className="space-y-5 text-sm">
               <div>
-                <p className="text-muted-foreground font-medium">Internal ID</p>
-                <p className="mt-1 font-mono text-xs">{company.id}</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Type</p>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${TYPE_BADGE_STYLES[company.type]}`}
+                >
+                  {company.type}
+                </span>
               </div>
               <div>
-                <p className="text-muted-foreground font-medium">Record Created</p>
-                <p className="mt-1">Just now</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Sub-type</p>
+                <p className="text-foreground">
+                  {company.subType || <span className="text-muted-foreground/50 italic">Not specified</span>}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Tags</p>
+                {company.tags.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {company.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground border"
+                        data-testid={`tag-${tag}`}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground/50 italic">No tags</span>
+                )}
               </div>
             </CardContent>
           </Card>
