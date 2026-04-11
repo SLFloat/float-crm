@@ -12,6 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus } from "lucide-react";
+import { CsvImport } from "@/components/csv-import";
 
 const RELATIONSHIP_STRENGTHS: RelationshipStrength[] = ["Strong", "Medium", "Weak"];
 
@@ -92,7 +93,9 @@ export default function Contacts() {
           <p className="text-muted-foreground mt-2">Manage people and connections.</p>
         </div>
 
-        <Dialog open={open} onOpenChange={setOpen}>
+        <div className="flex items-center gap-3">
+          <CsvImport />
+          <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button data-testid="button-add-contact">
               <Plus className="w-4 h-4 mr-2" />
@@ -251,6 +254,7 @@ export default function Contacts() {
             </ScrollArea>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="border rounded-md bg-card">

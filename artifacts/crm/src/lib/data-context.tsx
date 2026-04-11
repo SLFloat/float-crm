@@ -87,6 +87,14 @@ export interface Deal {
   decision: DealDecision | "";
 }
 
+export interface CsvContactRow {
+  name: string;
+  email: string;
+  phone: string;
+  company: string;
+  title: string;
+}
+
 interface AppContextType {
   companies: Company[];
   contacts: Contact[];
@@ -106,6 +114,7 @@ interface AppContextType {
   removePipelineEntry: (id: string) => void;
   addDeal: (deal: Omit<Deal, "id">) => void;
   updateDeal: (id: string, updates: Partial<Omit<Deal, "id">>) => void;
+  importContacts: (rows: CsvContactRow[]) => { imported: number; skipped: number };
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -221,12 +230,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateDeal = (id: string, updates: Partial<Omit<Deal, "id">>) =>
     setDeals((prev) => prev.map((d) => d.id === id ? { ...d, ...updates } : d));
 
+  const importContacts = (rows: CsvContactRow[]): { imported: number; skipped: number } => {
+    let imported = 0;
+    let skipped = 0;
+    const newCompanies: Company[] = [];
+    const newContacts: Contact[] = [];
+    const allCompanies = [...companies];
+
+    for (const row of rows) {
+      if (!row.name?.trim()) { skipped++; continue; }
+
+      let companyId = "";
+      if (row.company?.trim()) {
+        const normalised = row.company.trim().toLowerCase();
+        let existing = allCompanies.find((c) => c.name.toLowerCase() === normalised);
+        if (!existing) {
+          existing = { id: uid(), name: row.company.trim(), type: "Borrower", subType: "", tags: [] };
+          allCompanies.push(existing);
+          newCompanies.push(existing);
+        }
+        companyId = existing.id;
+      }
+
+      newContacts.push({
+        id: uid(),
+        name: row.name.trim(),
+        email: row.email?.trim() ?? "",
+        phone: row.phone?.trim() ?? "",
+        title: row.title?.trim() ?? "",
+        role: "",
+        linkedin: "",
+        relationshipStrength: "Medium",
+        lastContactDate: "",
+        companyId,
+      });
+      imported++;
+    }
+
+    if (newCompanies.length > 0) setCompanies((prev) => [...prev, ...newCompanies]);
+    if (newContacts.length > 0) setContacts((prev) => [...prev, ...newContacts]);
+
+    return { imported, skipped };
+  };
+
   return (
     <AppContext.Provider value={{
       companies, contacts, activities, tasks, pipelines, pipelineEntries, deals,
       addCompany, addContact, addActivity, addTask, completeTask,
       addPipeline, addPipelineEntry, updatePipelineEntry, removePipelineEntry,
-      addDeal, updateDeal,
+      addDeal, updateDeal, importContacts,
     }}>
       {children}
     </AppContext.Provider>
