@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Building2, Users, GitBranch } from "lucide-react";
+import { LayoutDashboard, Building2, Users, GitBranch, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface LayoutProps {
@@ -14,6 +14,7 @@ export default function Layout({ children }: LayoutProps) {
     { href: "/companies", label: "Companies", icon: Building2 },
     { href: "/contacts", label: "Contacts", icon: Users },
     { href: "/pipelines", label: "Pipelines", icon: GitBranch },
+    { href: "/deals", label: "Deals", icon: Briefcase },
   ];
 
   return (

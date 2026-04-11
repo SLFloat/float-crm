@@ -8,9 +8,15 @@ export type PipelineCategory = "Fundraising" | "Co-invest" | "Deal Sourcing";
 export type PipelineStage = "Initial" | "Contacted" | "NDA" | "Engaged" | "Closed";
 export type PipelineEntryStatus = "Active" | "Closed";
 export type PipelineParentType = "Fund" | "Deal";
+export type DealStatus = "New" | "Underwriting" | "Decision Made";
+export type DealDecision = "Pass" | "Fund" | "Co-invest" | "Both";
+export type DealSettlementType = "Assignment" | "Participation" | "Both";
 
 export const PIPELINE_STAGES: PipelineStage[] = ["Initial", "Contacted", "NDA", "Engaged", "Closed"];
 export const PIPELINE_CATEGORIES: PipelineCategory[] = ["Fundraising", "Co-invest", "Deal Sourcing"];
+export const DEAL_STATUSES: DealStatus[] = ["New", "Underwriting", "Decision Made"];
+export const DEAL_DECISIONS: DealDecision[] = ["Pass", "Fund", "Co-invest", "Both"];
+export const DEAL_SETTLEMENT_TYPES: DealSettlementType[] = ["Assignment", "Participation", "Both"];
 
 export interface Company {
   id: string;
@@ -69,6 +75,18 @@ export interface PipelineEntry {
   status: PipelineEntryStatus;
 }
 
+export interface Deal {
+  id: string;
+  name: string;
+  borrowerId: string;
+  sourceId: string;
+  indicativePrice: string;
+  indicativeSize: string;
+  settlementType: DealSettlementType;
+  status: DealStatus;
+  decision: DealDecision | "";
+}
+
 interface AppContextType {
   companies: Company[];
   contacts: Contact[];
@@ -76,6 +94,7 @@ interface AppContextType {
   tasks: Task[];
   pipelines: Pipeline[];
   pipelineEntries: PipelineEntry[];
+  deals: Deal[];
   addCompany: (company: Omit<Company, "id">) => void;
   addContact: (contact: Omit<Contact, "id">) => void;
   addActivity: (activity: Omit<Activity, "id">) => void;
@@ -85,6 +104,8 @@ interface AppContextType {
   addPipelineEntry: (entry: Omit<PipelineEntry, "id">) => void;
   updatePipelineEntry: (id: string, updates: Partial<Pick<PipelineEntry, "stage" | "nextStep" | "status">>) => void;
   removePipelineEntry: (id: string) => void;
+  addDeal: (deal: Omit<Deal, "id">) => void;
+  updateDeal: (id: string, updates: Partial<Omit<Deal, "id">>) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -150,6 +171,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     { id: "pe8", pipelineId: "p3", companyId: "2", stage: "Initial",   nextStep: "Set up introductory call",             lastActivityDate: "2026-03-10", status: "Active" },
   ]);
 
+  const [deals, setDeals] = useState<Deal[]>([
+    { id: "d1", name: "Project Horizon", borrowerId: "4", sourceId: "2", indicativePrice: "95.5", indicativeSize: "$150M", settlementType: "Assignment", status: "Underwriting", decision: "Fund" },
+    { id: "d2", name: "Refinancing 2028 Notes", borrowerId: "4", sourceId: "3", indicativePrice: "Par", indicativeSize: "$250M", settlementType: "Participation", status: "New", decision: "" },
+    { id: "d3", name: "DACH Acquisition Facility", borrowerId: "5", sourceId: "3", indicativePrice: "97.0", indicativeSize: "$80M", settlementType: "Both", status: "Decision Made", decision: "Co-invest" },
+    { id: "d4", name: "Working Capital Revolver", borrowerId: "4", sourceId: "2", indicativePrice: "SOFR+350", indicativeSize: "$50M", settlementType: "Assignment", status: "Decision Made", decision: "Pass" },
+  ]);
+
   const addCompany = (company: Omit<Company, "id">) =>
     setCompanies((prev) => [...prev, { ...company, id: uid() }]);
 
@@ -157,8 +185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setContacts((prev) => [...prev, { ...contact, id: uid() }]);
 
   const addActivity = (activity: Omit<Activity, "id">) => {
-    const newActivity = { ...activity, id: uid() };
-    setActivities((prev) => [...prev, newActivity]);
+    setActivities((prev) => [...prev, { ...activity, id: uid() }]);
     if (activity.companyId) {
       setPipelineEntries((prev) =>
         prev.map((e) =>
@@ -188,11 +215,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const removePipelineEntry = (id: string) =>
     setPipelineEntries((prev) => prev.filter((e) => e.id !== id));
 
+  const addDeal = (deal: Omit<Deal, "id">) =>
+    setDeals((prev) => [...prev, { ...deal, id: uid() }]);
+
+  const updateDeal = (id: string, updates: Partial<Omit<Deal, "id">>) =>
+    setDeals((prev) => prev.map((d) => d.id === id ? { ...d, ...updates } : d));
+
   return (
     <AppContext.Provider value={{
-      companies, contacts, activities, tasks, pipelines, pipelineEntries,
+      companies, contacts, activities, tasks, pipelines, pipelineEntries, deals,
       addCompany, addContact, addActivity, addTask, completeTask,
       addPipeline, addPipelineEntry, updatePipelineEntry, removePipelineEntry,
+      addDeal, updateDeal,
     }}>
       {children}
     </AppContext.Provider>
