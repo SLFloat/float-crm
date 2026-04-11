@@ -63,6 +63,7 @@ export interface Pipeline {
   category: PipelineCategory;
   parentType?: PipelineParentType;
   parentName?: string;
+  linkedDealId?: string;
 }
 
 export interface PipelineEntry {

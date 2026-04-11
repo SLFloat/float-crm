@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Briefcase, Pencil, X, Building2 } from "lucide-react";
+import { ArrowLeft, Briefcase, Pencil, X, Building2, GitBranch, Plus, Users } from "lucide-react";
 
 const STATUS_STYLES: Record<DealStatus, string> = {
   "New":           "bg-slate-100 text-slate-700 border-slate-200",
@@ -58,13 +58,25 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function DealDetail() {
   const [, params] = useRoute("/deals/:id");
-  const { deals, companies, updateDeal } = useApp();
+  const { deals, companies, pipelines, pipelineEntries, addPipeline, updateDeal } = useApp();
   const [editing, setEditing] = useState(false);
 
   const id = params?.id;
   const deal = deals.find((d) => d.id === id);
   const borrower = deal ? companies.find((c) => c.id === deal.borrowerId) : null;
   const source = deal ? companies.find((c) => c.id === deal.sourceId) : null;
+  const linkedPipelines = deal ? pipelines.filter((p) => p.linkedDealId === deal.id) : [];
+
+  const handleCreateCoInvestPipeline = () => {
+    if (!deal) return;
+    addPipeline({
+      name: `${deal.name} Co-invest`,
+      category: "Co-invest",
+      parentType: "Deal",
+      parentName: deal.name,
+      linkedDealId: deal.id,
+    });
+  };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -382,6 +394,56 @@ export default function DealDetail() {
         </div>
 
         <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <GitBranch className="w-4 h-4 text-muted-foreground" />
+                  Pipelines
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 text-xs"
+                  onClick={handleCreateCoInvestPipeline}
+                  data-testid="button-create-coinvest-pipeline"
+                >
+                  <Plus className="w-3 h-3" />
+                  Co-invest Pipeline
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {linkedPipelines.length === 0 ? (
+                <p className="text-sm text-muted-foreground/60 italic">No pipelines linked yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {linkedPipelines.map((pipeline) => {
+                    const count = pipelineEntries.filter((e) => e.pipelineId === pipeline.id).length;
+                    return (
+                      <Link
+                        key={pipeline.id}
+                        href={`/pipelines/${pipeline.id}`}
+                        className="flex items-center justify-between p-2.5 border rounded-lg hover:bg-muted/40 transition-colors group"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium group-hover:text-primary transition-colors truncate">
+                            {pipeline.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{pipeline.category}</p>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0 ml-2">
+                          <Users className="w-3.5 h-3.5" />
+                          {count}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Parties</CardTitle>
