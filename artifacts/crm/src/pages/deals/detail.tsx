@@ -45,8 +45,8 @@ function FieldRow({ label, value, empty }: { label: string; value?: string | nul
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  borrowerId: z.string().min(1, "Borrower is required"),
-  sourceId: z.string().min(1, "Source is required"),
+  borrowerId: z.string().optional(),
+  sourceId: z.string().optional(),
   indicativePrice: z.string().optional(),
   indicativeSize: z.string().optional(),
   settlementType: z.enum(["Assignment", "Participation", "Both"]),
@@ -83,8 +83,8 @@ export default function DealDetail() {
   const onSubmit = (values: FormValues) => {
     updateDeal(id!, {
       name: values.name,
-      borrowerId: values.borrowerId,
-      sourceId: values.sourceId,
+      borrowerId: values.borrowerId ?? "",
+      sourceId: values.sourceId ?? "",
       indicativePrice: values.indicativePrice ?? "",
       indicativeSize: values.indicativeSize ?? "",
       settlementType: values.settlementType,

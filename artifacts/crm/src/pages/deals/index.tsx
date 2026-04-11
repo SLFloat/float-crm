@@ -34,8 +34,8 @@ const DECISION_STYLES: Record<DealDecision, string> = {
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  borrowerId: z.string().min(1, "Borrower is required"),
-  sourceId: z.string().min(1, "Source is required"),
+  borrowerId: z.string().optional(),
+  sourceId: z.string().optional(),
   indicativePrice: z.string().optional(),
   indicativeSize: z.string().optional(),
   settlementType: z.enum(["Assignment", "Participation", "Both"]),
@@ -61,8 +61,8 @@ export default function Deals() {
   const onSubmit = (values: FormValues) => {
     addDeal({
       name: values.name,
-      borrowerId: values.borrowerId,
-      sourceId: values.sourceId,
+      borrowerId: values.borrowerId ?? "",
+      sourceId: values.sourceId ?? "",
       indicativePrice: values.indicativePrice ?? "",
       indicativeSize: values.indicativeSize ?? "",
       settlementType: values.settlementType,
