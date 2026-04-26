@@ -212,7 +212,21 @@ function Sidebar({
       <div style={styles.logo}>Float CRM</div>
 
       <div style={{ marginBottom: 10, fontSize: 12 }}>
-          User: {currentUser}
+        User: {currentUser}
+        <button
+          style={{
+            marginLeft: 10,
+            fontSize: 10,
+            padding: "2px 6px",
+            cursor: "pointer"
+          }}
+          onClick={() => {
+            localStorage.removeItem("auth_user");
+            window.location.reload();
+          }}
+        >
+          Logout
+        </button>
       </div>
 
       {items.map((item) => (
@@ -4431,10 +4445,14 @@ export default function App() {
 
   const crm = useCRM();
   const [page, setPage] = useState("Dashboard");
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);const [currentUser, setCurrentUser] = useState(() => {
+    return localStorage.getItem("auth_user");
+  });
   const [authUser, setAuthUser] = useState("");
   const [authPass, setAuthPass] = useState("");
-  const [isAuthed, setIsAuthed] = useState(false);
+  const [isAuthed, setIsAuthed] = useState(() => {
+    return localStorage.getItem("auth_user") ? true : false;
+  });
   const [search, setSearch] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [selectedContactId, setSelectedContactId] = useState(null);
@@ -4531,6 +4549,7 @@ const searchResults = q
               };
 
               if (passwords[authUser] === authPass) {
+                localStorage.setItem("auth_user", authUser);
                 setCurrentUser(authUser);
                 setIsAuthed(true);
               } else {
