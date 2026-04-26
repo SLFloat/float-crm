@@ -1261,7 +1261,7 @@ function Contacts({
   const [tags, setTags] = useState("");
   const [companyId, setCompanyId] = useState("");
 
-  const [showAdd, setShowAdd] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
 
   const [activityText, setActivityText] = useState("");
 
