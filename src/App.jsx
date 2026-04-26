@@ -1818,13 +1818,24 @@ return (
                 color: "white",
                 border: "none",
               }}
-              onClick={() => {
+              onClick={async () => {
                 if (!window.confirm("Delete this contact?")) return;
+
+                const { error } = await supabase
+                  .from("contacts")
+                  .delete()
+                  .eq("id", selectedContact.id);
+
+                if (error) {
+                  console.error("DELETE CONTACT ERROR:", error);
+                  alert("Failed to delete contact");
+                  return;
+                }
 
                 crm.setData((prev) => ({
                   ...prev,
                   contacts: prev.contacts.filter(
-                    (c) => c.id !== selectedContact.id
+                    (c) => String(c.id) !== String(selectedContact.id)
                   ),
                 }));
 
