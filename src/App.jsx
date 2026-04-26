@@ -211,14 +211,9 @@ function Sidebar({
     <div style={styles.sidebar}>
       <div style={styles.logo}>Float CRM</div>
 
-      <select
-        value={currentUser}
-        onChange={(e) => setCurrentUser(e.target.value)}
-        style={{ marginBottom: 10, width: "100%" }}
-      >
-        <option value="Seth">Seth</option>
-        <option value="David">David</option>
-      </select>
+      <div style={{ marginBottom: 10, fontSize: 12 }}>
+          User: {currentUser}
+      </div>
 
       {items.map((item) => (
         <div
@@ -4436,7 +4431,10 @@ export default function App() {
 
   const crm = useCRM();
   const [page, setPage] = useState("Dashboard");
-  const [currentUser, setCurrentUser] = useState("Seth");
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authUser, setAuthUser] = useState("");
+  const [authPass, setAuthPass] = useState("");
+  const [isAuthed, setIsAuthed] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [selectedContactId, setSelectedContactId] = useState(null);
@@ -4486,9 +4484,69 @@ const searchResults = q
         })),
     ].slice(0, 10)
   : [];
-  
+    
+    if (!isAuthed) {
+    return (
+      <div style={{
+        height: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#f8fafc",
+        fontFamily: "Inter, system-ui"
+      }}>
+        <div style={{
+          background: "white",
+          padding: 30,
+          borderRadius: 10,
+          width: 300,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: 12 }}>Login</div>
+
+          <select
+            value={authUser}
+            onChange={(e) => setAuthUser(e.target.value)}
+            style={{ ...styles.input, marginBottom: 10 }}
+          >
+            <option value="">Select user</option>
+            <option value="Seth">Seth</option>
+            <option value="David">David</option>
+          </select>
+
+          <input
+            type="password"
+            placeholder="Password"
+            value={authPass}
+            onChange={(e) => setAuthPass(e.target.value)}
+            style={{ ...styles.input, marginBottom: 10 }}
+          />
+
+          <button
+            style={{ ...styles.primaryBtn, width: "100%" }}
+            onClick={() => {
+              const passwords = {
+                Seth: "seth123",
+                David: "david123",
+              };
+
+              if (passwords[authUser] === authPass) {
+                setCurrentUser(authUser);
+                setIsAuthed(true);
+              } else {
+                alert("Wrong password");
+              }
+            }}
+          >
+            Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={styles.layout}>
+      <div style={styles.layout}>
       <Sidebar
         page={page}
         setPage={setPage}
