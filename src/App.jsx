@@ -4422,7 +4422,8 @@ export default function App() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "deals" },
-        () => {
+        (payload) => {
+          console.log("REALTIME EVENT:", payload);
           loadDeals();
         }
       )
