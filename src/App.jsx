@@ -4485,11 +4485,41 @@ export default function App() {
           console.log("REALTIME EVENT:", payload);
           loadDeals();
         }
+            )
+      .subscribe();
+
+    const contactsChannel = supabase
+      .channel("contacts-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "contacts" },
+        async () => {
+          const { data, error } = await supabase
+            .from("contacts")
+            .select("*")
+            .order("id", { ascending: false });
+
+          if (!error) {
+            const fixed = (data || []).map((c) => ({
+              ...c,
+              id: String(c.id),
+              companyId: c.companyId ? String(c.companyId) : null,
+            }));
+
+            crm.setData((prev) => ({
+              ...prev,
+              contacts: fixed,
+            }));
+          } else {
+            console.error("LOAD CONTACTS ERROR:", error);
+          }
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(contactsChannel);
     };
   }, []);
 
