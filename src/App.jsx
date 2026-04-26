@@ -4445,7 +4445,7 @@ export default function App() {
 
   const crm = useCRM();
   const [page, setPage] = useState("Dashboard");
-  const [currentUser, setCurrentUser] = useState(null);const [currentUser, setCurrentUser] = useState(() => {
+  const [currentUser, setCurrentUser] = useState(() => {
     return localStorage.getItem("auth_user");
   });
   const [authUser, setAuthUser] = useState("");
