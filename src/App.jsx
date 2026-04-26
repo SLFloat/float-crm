@@ -245,6 +245,8 @@ function Sidebar({
 
             if (item === "Contacts") {
               setSelectedContactId(null);
+            } else {
+              setSelectedContactId(null);
             }
           }}
           style={{
@@ -303,10 +305,10 @@ function Dashboard({
   setPage,
   setSelectedCompanyId,
 }) {
-  const totalCompanies = crm.data.companies.length;
-  const totalContacts = crm.data.contacts.length;
+  const totalCompanies = (crm.data.companies || []).length;
+  const totalContacts = (crm.data.contacts || []).length;
 
-  const myTasks = crm.data.pipelineEntries.filter(
+  const myTasks = (crm.data.pipelineEntries || []).filter(
     (e) => e.owner === currentUser
   );
 
@@ -316,7 +318,7 @@ function Dashboard({
 
   const activity = [
     // COMPANIES
-    ...crm.data.companies.flatMap((c) =>
+    ...(crm.data.companies || []).flatMap((c) =>
       (c.activity || []).map((a) => ({
         text: a.text,
         date: a.date,
@@ -327,7 +329,7 @@ function Dashboard({
     ),
 
     // CONTACTS
-    ...crm.data.contacts.flatMap((c) =>
+    ...(crm.data.contacts || []).flatMap((c) =>
       (c.activity || []).map((a) => ({
         text: a.text,
         date: a.date,
@@ -574,7 +576,7 @@ const avgPrice = useMemo(() => {
 
           {myTasks.slice(0, 5).map((e, i) => {
             const company = crm.data.companies.find(
-              (c) => c.id === e.companyId
+              (c) => String(c.id) === String(e.companyId)
             );
 
             return (
@@ -707,12 +709,13 @@ const avgPrice = useMemo(() => {
 
 function Companies({
   crm,
+  deals,
   selectedCompanyId,
   setSelectedCompanyId,
   setPage,
   setSelectedDealId,
   setSelectedPipelineId,
-  }) {
+}) {
   const [selectedContactId, setSelectedContactId] = useState(null);
 
   const [name, setName] = useState("");
@@ -725,12 +728,12 @@ function Companies({
   const [importMessage, setImportMessage] = useState("");
 
   const selectedCompany =
-    crm.data.companies.find((c) => String(c.id) === String(selectedCompanyId)) ||
+    (crm.data.companies || []).find((c) => String(c.id) === String(selectedCompanyId)) ||
     null;
 
   const companyContacts = selectedCompany
-    ? crm.data.contacts.filter(
-        (c) => String(c.companyId) === String(selectedCompany.id)
+    ? (crm.data.contacts || []).filter(
+        (c) => String(c.companyId) === String(selectedCompany?.id)
       )
     : [];
 
@@ -744,7 +747,7 @@ function Companies({
 
     return (
     <div style={styles.page}>
-      {!selectedCompany && (
+      {!selectedCompanyId && (
         <>
           <div style={styles.header}>
             <div style={styles.title}>Companies</div>
@@ -769,14 +772,27 @@ function Companies({
 
             <button
               style={styles.primaryBtn}
-              onClick={() => {
+              onClick={async () => {
                 const trimmed = name.trim();
                 if (!trimmed) return;
 
-                crm.add("companies", {
-                  name: trimmed,
-                  activity: [],
-                });
+                const { data, error } = await supabase
+                  .from("companies")
+                  .insert([{ name: trimmed }])
+                  .select()
+                  .single();
+
+                if (error) {
+                  console.error("INSERT COMPANY ERROR:", error);
+                  return;
+                }
+
+                if (data) {
+                  crm.setData((prev) => ({
+                    ...prev,
+                    companies: [data, ...(prev.companies || [])],
+                  }));
+                }
 
                 setName("");
               }}
@@ -805,7 +821,7 @@ function Companies({
                   setImportMessage("");
                   const reader = new FileReader();
 
-                  reader.onload = (event) => {
+                  reader.onload = async (event) => {
                     const text = String(event.target.result || "").replace(
                       /^\uFEFF/,
                       ""
@@ -814,80 +830,48 @@ function Companies({
                     const lines = text.split(/\r\n|\n|\r/);
                     const dataLines = lines.slice(1);
 
-                    crm.setData((prev) => {
-                      const companies = [...prev.companies];
-                      const contacts = [...prev.contacts];
+                    const contactsToInsert = [];
 
-                      const existingEmails = new Set(
-                        contacts
-                          .map((c) => (c.email || "").trim().toLowerCase())
-                          .filter(Boolean)
-                      );
+                    dataLines.forEach((raw) => {
+                      const line = (raw || "").trim();
+                      if (!line) return;
 
-                      const existingCompanyNames = new Set(
-                        companies
-                          .map((c) => (c.name || "").trim().toLowerCase())
-                          .filter(Boolean)
-                      );
+                      const [n, e, c] = line.split(",");
 
-                      const seenEmails = new Set();
+                      const rowName = (n || "").trim();
+                      const rowEmail = (e || "").trim();
+                      const rowCompany = (c || "").trim();
 
-                      dataLines.forEach((raw) => {
-                        const line = (raw || "").trim();
-                        if (!line) return;
+                      if (!rowEmail) return;
 
-                        const [n, e, c] = line.split(",");
-
-                        const rowName = (n || "").trim();
-                        const rowEmail = (e || "").trim();
-                        const rowCompany = (c || "").trim();
-
-                        if (!rowEmail) return;
-
-                        const emailKey = rowEmail.toLowerCase();
-                        const companyKey = rowCompany.toLowerCase();
-
-                        if (seenEmails.has(emailKey)) return;
-                        seenEmails.add(emailKey);
-
-                        if (existingEmails.has(emailKey)) return;
-
-                        let company = companies.find(
-                          (co) =>
-                            (co.name || "").trim().toLowerCase() === companyKey
-                        );
-
-                        if (!company && companyKey) {
-                          company = {
-                            id: Date.now().toString() + Math.random(),
-                            name: rowCompany,
-                            activity: [],
-                          };
-                          companies.push(company);
-
-                          if (!existingCompanyNames.has(companyKey)) {
-                            existingCompanyNames.add(companyKey);
-                          }
-                        }
-
-                        contacts.push({
-                          id: Date.now().toString() + Math.random(),
-                          name: rowName || rowEmail,
-                          email: rowEmail,
-                          companyId: company?.id || "",
-                        });
-
-                        existingEmails.add(emailKey);
+                      contactsToInsert.push({
+                        name: rowName || rowEmail,
+                        email: rowEmail,
+                        phone: null,
+                        companyId: null, // skip company linking for now (DB-safe)
                       });
-
-                      setImportMessage("Import complete");
-
-                      return {
-                        ...prev,
-                        companies,
-                        contacts,
-                      };
                     });
+
+                    const { data, error } = await supabase
+                      .from("contacts")
+                      .insert(contactsToInsert)
+                      .select();
+
+                    if (error) {
+                      console.error("IMPORT CONTACTS ERROR:", error);
+                      setImportMessage("Import failed");
+                      alert("Import failed");
+                      return;
+                    }
+
+                    if (data && data.length > 0) {
+                      crm.setData((prev) => ({
+                        ...prev,
+                        contacts: [...data, ...(prev.contacts || [])],
+                      }));
+                    }
+
+                    setImportMessage("Import complete");
 
                     e.target.value = "";
                   };
@@ -911,7 +895,7 @@ function Companies({
           </div>
 
           <div style={styles.card}>
-            {[...crm.data.companies]
+            {[...(crm.data.companies || [])]
   .filter((c) => {
     if (!search.trim()) return true;
 
@@ -919,7 +903,7 @@ function Companies({
 
     const companyMatch = (c.name || "").toLowerCase().includes(q);
 
-    const contactMatch = crm.data.contacts.some(
+    const contactMatch = (crm.data.contacts || []).some(
       (ct) =>
         String(ct.companyId) === String(c.id) &&
         (
@@ -952,7 +936,7 @@ function Companies({
                   }}
                 >
                   <div
-                    onClick={() => setSelectedCompanyId(c.id)}
+                    onClick={() => setSelectedCompanyId(String(c.id))}
                     style={{ cursor: "pointer", flex: 1 }}
                   >
                     <div style={{ fontWeight: 500 }}>
@@ -982,7 +966,7 @@ function Companies({
   (() => {
     const q = search.toLowerCase();
 
-    const match = crm.data.contacts.find(
+    const match = (crm.data.contacts || []).find(
       (ct) =>
         String(ct.companyId) === String(c.id) &&
         (
@@ -1057,7 +1041,7 @@ function Companies({
       ← Back
     </button>
 
-    <h2 style={{ marginTop: 10 }}>{selectedCompany.name}</h2>
+    <h2 style={{ marginTop: 10 }}>{selectedCompany?.name}</h2>
     <div style={{ ...styles.card, marginTop: 20 }}>
       <strong>Activity</strong>
 
@@ -1079,7 +1063,7 @@ function Companies({
             crm.setData((prev) => ({
               ...prev,
               companies: prev.companies.map((c) =>
-                String(c.id) === String(selectedCompany.id)
+                String(c.id) === String(selectedCompany?.id)
                   ? {
                       ...c,
                       activity: [
@@ -1103,11 +1087,11 @@ function Companies({
 
       {/* ACTIVITY LIST */}
       <div style={{ marginTop: 10, fontSize: 12 }}>
-        {(selectedCompany.activity || []).length === 0 && (
+        {(selectedCompany?.activity || []).length === 0 && (
           <div style={{ color: "#94a3b8" }}>No activity yet</div>
         )}
 
-        {(selectedCompany.activity || []).slice(0, 5).map((a, i) => (
+        {(selectedCompany?.activity || []).slice(0, 5).map((a, i) => (
           <div key={i} style={{ marginBottom: 6 }}>
             <div>{a.text}</div>
             <div style={{ fontSize: 11, color: "#64748b" }}>
@@ -1128,8 +1112,8 @@ function Companies({
         Contacts
       </div>
 
-      {crm.data.contacts
-        .filter((c) => String(c.companyId) === String(selectedCompany.id))
+      {(crm.data.contacts || [])
+        .filter((c) => String(c.companyId) === String(selectedCompany?.id))
         .map((c) => (
           <div key={c.id} style={{ marginBottom: 6 }}>
             {c.name || "(No name)"} — {c.email || "No email"}
@@ -1143,11 +1127,11 @@ function Companies({
             Deals
           </div>
 
-          {deals
+          {(deals || [])
             .filter((d) =>
               crm.data.pipelineEntries.some(
                 (e) =>
-                  String(e.companyId) === String(selectedCompany.id) &&
+                  String(e.companyId) === String(selectedCompany?.id) &&
                   String(e.dealId) === String(d.id)
               )
             )
@@ -1176,10 +1160,11 @@ function Companies({
               </div>
             ))}
 
-          {deals.filter((d) =>
+          {(deals || [])
+            .filter((d) =>
             crm.data.pipelineEntries.some(
               (e) =>
-                String(e.companyId) === String(selectedCompany.id) &&
+                String(e.companyId) === String(selectedCompany?.id) &&
                 String(e.dealId) === String(d.id)
             )
           ).length === 0 && (
@@ -1195,12 +1180,13 @@ function Companies({
             Pipelines
           </div>
 
-      {crm.data.pipelineEntries
-        .filter((e) => String(e.companyId) === String(selectedCompany.id))
-        .map((e, i) => {
-          const pipeline = crm.data.pipelines.find(
-            (p) => String(p.id) === String(e.pipelineId)
-          );
+      {selectedCompany &&
+        crm.data.pipelineEntries
+          .filter((e) => String(e.companyId) === String(selectedCompany?.id))
+          .map((e, i) => {
+            const pipeline = crm.data.pipelines.find(
+              (p) => String(p.id) === String(e.pipelineId)
+            );
 
           return (
             <div
@@ -1209,7 +1195,7 @@ function Companies({
                 setPage("Pipelines");
                 setSelectedPipelineId(e.pipelineId);
                 window.__highlightCompanyId = e.companyId;
-                window.__highlightCompanyName = selectedCompany.name;
+                window.__highlightCompanyName = selectedCompany?.name;
               }}
               style={{
                 padding: "10px 12px",
@@ -1236,8 +1222,9 @@ function Companies({
           );
         })}
 
-      {crm.data.pipelineEntries.filter(
-        (e) => String(e.companyId) === String(selectedCompany.id)
+      {selectedCompany &&
+      crm.data.pipelineEntries.filter(
+        (e) => String(e.companyId) === String(selectedCompany?.id)
       ).length === 0 && (
         <div style={{ color: "#94a3b8" }}>
           No pipeline entries
@@ -1269,7 +1256,12 @@ function Contacts({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [title, setTitle] = useState("");
+  const [notes, setNotes] = useState("");
+  const [tags, setTags] = useState("");
   const [companyId, setCompanyId] = useState("");
+
+  const [showAdd, setShowAdd] = useState(true);
 
   const [activityText, setActivityText] = useState("");
 
@@ -1305,11 +1297,11 @@ function Contacts({
     }));
   }
 
-  const selectedContact = crm.data.contacts.find(
-    (c) => c.id === selectedContactId
-  );
+  const selectedContact = selectedContactId
+    ? (crm.data.contacts || []).find((c) => String(c.id) === String(selectedContactId))
+    : null;
 
-  const filteredContacts = crm.data.contacts.filter((c) => {
+  const filteredContacts = (crm.data.contacts || []).filter((c) => {
     const nameVal = (c.name || "").toLowerCase();
     const emailVal = (c.email || "").toLowerCase();
 
@@ -1369,7 +1361,7 @@ return (
           </div>
 
           <div>
-            {[...new Set(crm.data.contacts.flatMap(c => c.tags || []))].map((t) => {
+            {[...new Set((crm.data.contacts || []).flatMap(c => c.tags || []))].map((t) => {
               const active = tagFilter.includes(t);
 
               return (
@@ -1403,66 +1395,122 @@ return (
 
         {/* ADD */}
         <div style={styles.card}>
-          <input
-            style={styles.input}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Name"
-          />
-
-          <input
-            style={styles.input}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-          />
-
-          <input
-            style={styles.input}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Phone"
-          />
-
-          <select
-            style={styles.input}
-            value={companyId}
-            onChange={(e) => setCompanyId(e.target.value)}
+          <div
+            style={{ cursor: "pointer", fontWeight: 600, marginBottom: 10 }}
+            onClick={() => setShowAdd((prev) => !prev)}
           >
-            <option value="">Select company</option>
-            {crm.data.companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            {showAdd ? "▼ Add Contact" : "▶ Add Contact"}
+          </div>
 
-          <button
-            style={styles.primaryBtn}
-            onClick={() => {
-              const trimmed = name.trim();
-              if (!trimmed || !companyId) return;
+          {showAdd && (
+            <>
+              <input
+                style={styles.input}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Name"
+              />
 
-              crm.add("contacts", {
-                name: trimmed,
-                email,
-                phone,
-                companyId: String(companyId),
-              });
+              <input
+                style={styles.input}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+              />
 
-              setName("");
-              setEmail("");
-              setPhone("");
-              setCompanyId("");
-            }}
-          >
-            Add
-          </button>
+              <input
+                style={styles.input}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Phone"
+              />
+
+              <input
+                style={styles.input}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Title / Role"
+              />
+
+              <input
+                style={styles.input}
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="Tags (comma separated)"
+              />
+
+              <textarea
+                style={{ ...styles.input, height: 80 }}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Notes"
+              />
+
+              <select
+                style={styles.input}
+                value={companyId}
+                onChange={(e) => setCompanyId(e.target.value)}
+              >
+                <option value="">Select company</option>
+                {(crm.data.companies || []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                style={styles.primaryBtn}
+                onClick={async (e) => {
+                  e.preventDefault();
+
+                  const trimmed = name.trim();
+                  if (!trimmed) return;
+
+                  const { data, error } = await supabase
+                    .from("contacts")
+                    .insert([
+                      {
+                        name: trimmed,
+                        email: email || null,
+                        phone: phone || null,
+                        companyId: companyId ? String(companyId) : null,
+                      },
+                    ])
+                    .select();
+
+                  if (error) {
+                    console.error("INSERT CONTACT ERROR:", error);
+                    alert("Failed to add contact");
+                    return;
+                  }
+
+                  if (data && data.length > 0) {
+                    crm.setData((prev) => ({
+                      ...prev,
+                      contacts: [data[0], ...(prev.contacts || [])],
+                    }));
+                  }
+
+                  setName("");
+                  setEmail("");
+                  setPhone("");
+                  setCompanyId("");
+                }}
+              >
+                Add
+              </button>
+            </>
+          )}
         </div>
 
         {/* TABLE */}
         <div style={styles.card}>
-          {filteredContacts.length === 0 && <div>No contacts found</div>}
+          {filteredContacts.length === 0 && (
+            <div style={{ padding: 20, color: "#64748b" }}>
+              No contacts yet
+            </div>
+          )}
 
           {filteredContacts.length > 0 && (
             <table style={styles.table}>
@@ -1509,7 +1557,7 @@ return (
                   return (
                     <tr
                       key={c.id}
-                      onClick={() => setSelectedContactId(c.id)}
+                      onClick={() => setSelectedContactId(String(c.id))}
                       style={{
                         cursor: "pointer",
                         transition: "0.15s",
@@ -1829,7 +1877,7 @@ function Deals({
   const [filterSeller, setFilterSeller] = useState("");
 
     const selectedDeal =
-      deals.find((d) => String(d.id) === String(selectedDealId)) || null;
+      (deals || []).find((d) => String(d.id) === String(selectedDealId)) || null;
 
     async function updateDealField(dealId, field, value) {
       // 1. update UI immediately (required for typing)
@@ -2219,7 +2267,7 @@ function Deals({
 
                 {entries.map((e, i) => {
                   const company = crm.data.companies.find(
-                    (c) => c.id === e.companyId
+                    (c) => String(c.id) === String(e.companyId)
                   );
 
                   if (!company) return null;
@@ -2295,7 +2343,7 @@ function Deals({
                 company: company?.name || "",
                 seller: d.seller || "",
                 dealSize: parseFloat(d.dealSize || 0) || "",
-                priceOffered: priceOffered || "",
+                priceOffered: d.priceOffered || "",
                 outcome: d.outcome || "",
                 reason: d.reason || "",
                 fundSize: parseFloat(d.fundSize || 0) || "",
@@ -2613,6 +2661,7 @@ function Deals({
             setName("");
             setStatus("New");
             setCompanyId("");
+            setShowAdd(false);
             setSeller("");
             setDealSize("");
             setPriceOffered("");
@@ -2633,7 +2682,7 @@ function Deals({
     )}
 
       <div style={styles.card}>
-          {deals
+          {(deals || [])
             .filter((d) => {
               if (filterOutcome && d.outcome !== filterOutcome) return false;
 
@@ -2812,7 +2861,7 @@ function Pipelines({ crm, setPage, setSelectedCompanyId, setSelectedDealId, sele
     </div>
 
     <div>
-      {[...new Set(crm.data.contacts.flatMap(c => c.tags || []))].map((t) => {
+      {[...new Set(crm.data.contacts || [].flatMap(c => c.tags || []))].map((t) => {
         const active = tagFilter.includes(t);
 
         return (
@@ -2942,7 +2991,7 @@ function Pipelines({ crm, setPage, setSelectedCompanyId, setSelectedDealId, sele
 
           if (tagFilter.length === 0) return true;
 
-          const companyContacts = crm.data.contacts.filter(
+          const companyContacts = crm.data.contacts || [].filter(
             (c) => String(c.companyId) === String(e.companyId)
           );
 
@@ -3391,6 +3440,7 @@ function Pipelines({ crm, setPage, setSelectedCompanyId, setSelectedDealId, sele
               });
 
               setCompanyId("");
+              setShowAdd(false);
               setNextStep("");
             }}
           >
@@ -3631,7 +3681,7 @@ function Pipelines({ crm, setPage, setSelectedCompanyId, setSelectedDealId, sele
 
         {stageEntries.map((e, i) => {
           const company = crm.data.companies.find(
-            (c) => c.id === e.companyId
+            (c) => String(c.id) === String(e.companyId)
           );
 
           // ✅ STALE LOGIC
@@ -3799,7 +3849,7 @@ function Pipelines({ crm, setPage, setSelectedCompanyId, setSelectedDealId, sele
                   style={{ flex: 1 }}
                 >
                   <option value="">Contact</option>
-                  {crm.data.contacts
+                  {crm.data.contacts || []
                     .filter(
                       (c) => String(c.companyId) === String(e.companyId)
                     )
@@ -4217,7 +4267,7 @@ function Tasks({ crm, setPage, currentUser, setSelectedCompanyId }) {
             )
             .map((e, i) => {
               const company = crm.data.companies.find(
-                (c) => c.id === e.companyId
+                (c) => String(c.id) === String(e.companyId)
               );
 
               return (
@@ -4277,7 +4327,7 @@ function Tasks({ crm, setPage, currentUser, setSelectedCompanyId }) {
 
           {overdue.map((e, i) => {
             const company = crm.data.companies.find(
-              (c) => c.id === e.companyId
+              (c) => String(c.id) === String(e.companyId)
             );
 
             return (
@@ -4343,7 +4393,7 @@ function Tasks({ crm, setPage, currentUser, setSelectedCompanyId }) {
 
       {upcoming.map((e, i) => {
         const company = crm.data.companies.find(
-          (c) => c.id === e.companyId
+          (c) => String(c.id) === String(e.companyId)
         );
 
         return (
@@ -4465,20 +4515,47 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchIndex, setSearchIndex] = useState(0);
 
-  const q = search.trim().toLowerCase();
+    useEffect(() => {
+      async function loadContacts() {
+        const { data, error } = await supabase
+          .from("contacts")
+          .select("*")
+          .order("id", { ascending: false });
 
-const searchResults = q
-  ? [
-      ...crm.data.companies
-  .filter((c) => c.name.toLowerCase().includes(q))
-  .map((c) => ({
-    type: "Company",
-    label: c.name,
-    page: "Companies",
-    id: c.id,
-  })),
+        if (error) {
+          console.error("LOAD CONTACTS ERROR:", error);
+          return;
+        }
 
-      ...crm.data.contacts
+        const fixed = (data || []).map((c) => ({
+          ...c,
+          id: String(c.id),
+          companyId: c.companyId ? String(c.companyId) : null,
+        }));
+
+        crm.setData((prev) => ({
+          ...prev,
+          contacts: fixed,
+        }));
+      }
+
+      loadContacts();
+    }, []);
+
+    const q = search.trim().toLowerCase();
+
+  const searchResults = q
+    ? [
+        ...crm.data.companies
+    .filter((c) => c.name.toLowerCase().includes(q))
+    .map((c) => ({
+      type: "Company",
+      label: c.name,
+      page: "Companies",
+      id: c.id,
+    })),
+
+      ...(crm.data.contacts || [])
         .filter((c) =>
           (c.name || "").toLowerCase().includes(q) ||
           (c.email || "").toLowerCase().includes(q)
@@ -4606,9 +4683,9 @@ const searchResults = q
           if (e.key === "Enter") {
             const item = searchResults[searchIndex];
 
-            if (item.type === "Contact") {
-              setSelectedContactId(item.id);
-            }
+            setSelectedContactId(null);
+
+            setPage(item.page);
 
             if (item.type === "Company") {
               setSelectedCompanyId(item.id);
@@ -4617,8 +4694,6 @@ const searchResults = q
             if (item.type === "Deal") {
               setSelectedDealId(item.id);
             }
-
-            setPage(item.page);
 
             setSearch("");
             setSearchOpen(false);
@@ -4679,10 +4754,13 @@ const searchResults = q
               display: "flex",
               flexDirection: "column",
             }}
-            onClick={() => {
-              if (item.type === "Contact") {
-                setSelectedContactId(item.id);
-              }
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+
+              setSelectedContactId(null);
+
+              setPage(item.page);
 
               if (item.type === "Company") {
                 setSelectedCompanyId(item.id);
@@ -4691,8 +4769,6 @@ const searchResults = q
               if (item.type === "Deal") {
                 setSelectedDealId(item.id);
               }
-
-              setPage(item.page);
 
               setSearch("");
               setSearchOpen(false);
@@ -4754,6 +4830,7 @@ const searchResults = q
   {page === "Companies" && (
   <Companies
     crm={crm}
+    deals={deals}
     selectedCompanyId={selectedCompanyId}
     setSelectedCompanyId={setSelectedCompanyId}
     setPage={setPage}
