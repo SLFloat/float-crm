@@ -4403,7 +4403,7 @@ export default function App() {
         .select("*");
 
       if (!error) {
-        const fixed = (data || []).map((d, i) => ({
+        const fixed = (data || []).map((d) => ({
           ...d,
           id: String(d.id),
         }));
@@ -4416,6 +4416,21 @@ export default function App() {
     };
 
     loadDeals();
+
+    const channel = supabase
+      .channel("deals-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "deals" },
+        () => {
+          loadDeals();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const crm = useCRM();
